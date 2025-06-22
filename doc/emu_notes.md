@@ -1,52 +1,347 @@
 # Notes
-An emulator is a program that runs on a specific platform (the host system) that allows you to run software written for a different platform (the target system). The emulator is basically a program that simulates the behavior of the target systems hardware which allows the host system to run software written specifically for the target system.
+
+An emulator is a program that runs on a specific platform (the host system) that
+allows you to run software written for a different platform (the target system).
+The emulator is basically a program that simulates the behavior of the target
+systems hardware which allows the host system to run software written
+specifically for the target system.
 
 Every processor-based system has three major components:
+
 - The processor
 - Memory
 - IO harware
 
-## The Processor
-The processor reads instructions from memory and does what these instructions tell it to do. The processor will execute these instructions sequentially.
+## Hardware Basics
 
-There are many different types of processors and most are identified by a number. Each processor does the same basic things decribed above but each does it in a different way. We also sometimes refer to processor "families". These are groups of processors, usually made by the same company, which are all very similar.
+### The Processor
 
-## Processor Registers
+The processor reads instructions from memory and does what these instructions
+tell it to do. The processor will execute these instructions sequentially.
 
-Every processor has a series of internal registers that are used to store data, addresses, and to control the processor.
+There are many different types of processors and most are identified by a
+number. Each processor does the same basic things decribed above but each does
+it in a different way. We also sometimes refer to processor "families". These
+are groups of processors, usually made by the same company, which are all very
+similar.
 
-### Program Counter
+### Processor Registers (Basics)
 
-The most common register that you will find on all processors is the Program Counter (PC). The PC holds the address where the next instruction will be loaded from memory. The PC is initialized to some known state when the processor is reset and increments as each byte of each instruction is read. The PC can also be changed using jump and branch type instructions.
+Every processor has a series of internal registers that are used to store data,
+addresses, and to control the processor.
 
-### Working Registers
-Processors have 1 or more "working registers" which are used to hold data that the processor needs to operate on.
+#### Program Counter
 
-### Stack Pointer
-Most processors have a special area of memory called the stack. The processor accesses the stack using what is called the LIFO method, Last In First Out. Processors usually have instructions which allow the programmer to manually push and pull values from the stack.
+The most common register that you will find on all processors is the Program
+Counter (PC). The PC holds the address where the next instruction will be loaded
+from memory. The PC is initialized to some known state when the processor is
+reset and increments as each byte of each instruction is read. The PC can also
+be changed using jump and branch type instructions.
 
-The Stack Pointer (SP) is used to keep track of the current position of the stack.
+#### Working Registers
 
-### Status Register
-The status register(s) usually serve two purposes. First, they allow you to control certain aspects of the processor. The other important part of the status register are the status flags.
+Processors have 1 or more "working registers" which are used to hold data that
+the processor needs to operate on.
 
-## Memory
-Memory is where the instructions that the processor executes and the data that these instructions act on is stored. There are 2 major types of memory, RAM and ROM. RAM can be written to and read from by the processor. ROM can only be read from, not written to.
+#### Stack Pointer
 
-## IO
-IO is the hardware that allows the processor to access the outside world. IO includes things like sound circuitry, video circuits, controller inputs, and communication chips that communicate with external devices such as disk drives and printers. IO also includes things like timer circuits, which allow the processor to keep track of "real world" time.
+Most processors have a special area of memory called the stack. The processor
+accesses the stack using what is called the LIFO method, Last In First Out.
+Processors usually have instructions which allow the programmer to manually push
+and pull values from the stack.
 
-## Buses
-For the processor, memory, and IO to work together, there needs to be some sort of interconnection between them. Buses are basically a group of wires that connect the devices in a system together.
+The Stack Pointer (SP) is used to keep track of the current position of the
+stack.
 
-Each line in a bus carries 1 bit of information. So if a processor needs to mode data 8 bits at a time, it would need a bus that is 8 bits wide.
+#### Status Register
+
+The status register(s) usually serve two purposes. First, they allow you to
+control certain aspects of the processor. The other important part of the status
+register are the status flags.
+
+### Memory (Basics)
+
+Memory is where the instructions that the processor executes and the data that
+these instructions act on is stored. There are 2 major types of memory, RAM and
+ROM. RAM can be written to and read from by the processor. ROM can only be read
+from, not written to.
+
+### IO
+
+IO is the hardware that allows the processor to access the outside world. IO
+includes things like sound circuitry, video circuits, controller inputs, and
+communication chips that communicate with external devices such as disk drives
+and printers. IO also includes things like timer circuits, which allow the
+processor to keep track of "real world" time.
+
+### Buses
+
+For the processor, memory, and IO to work together, there needs to be some sort
+of interconnection between them. Buses are basically a group of wires that
+connect the devices in a system together.
+
+Each line in a bus carries 1 bit of information. So if a processor needs to mode
+data 8 bits at a time, it would need a bus that is 8 bits wide.
 
 There are three types of buses in a processor-based system:
+
 - The data bus
 - The address bus
 - The control bus
 
-The data bus tells us what to move, the address bus tells us where to move it, and the control bus tells us how to move it.
+The data bus tells us what to move, the address bus tells us where to move it,
+and the control bus tells us how to move it.
 
-# Sources
+#### The Data Bus
+
+The data bus is the path that data takes between the processor and the RAM and
+IO circuits. The data bus is bi-directional. The data bus is usually either 8
+bits (1 byte), 16 bits (1 word), or 32 bits (1 longword) wide.
+
+#### The Address Bus
+
+The address bus is used by the processor to tell the hardware where it wants
+data to go to or where it wants to get data from.
+
+Every processor can access a limited number of memory addresses depending on how
+big the processor's address bus is. If the processor has a 16 bit address bus,
+then it can access 65,536 memory locations. The Memory Map for a system tells
+you what is at each of those locations.
+
+The circuitry in the system that actually implements the memory map is called an
+address decoder.
+
+#### The Control Bus
+
+These signals aren't always referred to as a bus, but it is convenient to group
+them this way.
+
+The most important part of the control bus is the Read/Write signal(s). This
+signal is generated by the processor and indicates to the external hardware if
+the processor wants to write data to memory or read data from memory.
+
+### Microcontrollers
+
+A microcontroller is a microprocessor with RAM, ROM, and/or IO built into the
+same chip.
+
+### Interrupts (Basics)
+
+Interrupts are external signals that come into the processor and interrupt the
+normal flow of a program. When an interrupt signal is activated the processor
+stops what it is currently doing, saves some information about where it
+currently is in the program, and then jumps to a specific address in memory and
+executes an "interrupt handler" routine.
+
+When this routine is finished executing, a special instruction tells the
+processor that the interrupt handler is done and to resume what it was doing
+when the interrupt occurred.
+
+Some processors also have what are called exceptions. Exceptions are similar to
+interrupts but are usually caused by something inside the processor.
+
+### Memory Mapped IO / Port Mapped IO
+
+There are two ways that processors can access IO devices:
+
+- Memory mapped IO
+- Port mapped IO
+
+With memory mapped IO, the IO devices are accessed in the same way that RAM and
+ROM are accessed. The address decoding circuitry determines if the processor is
+accessing memory or an IO device and enables the appropriate device.
+
+With port mapped IO, the processor has special instructions that are used to
+access IO devices. The instructions will activate a signal output from the
+processor which tells the external hardware that it is trying to do an IO access
+as opposed to a memory access.
+
+Any processor can do memory mapped IO, even if they also support port mapped IO;
+it all depends on how the external hardware is configured.
+
+### Big/Little Endian
+
+Endian determines how a processor handles multi byte numbers. Big Endian
+processors store the most significant byte first and the least significant byte
+last. Little Endian processors store the bytes in the opposite way.
+
+Lets say we want to store the hext number `0x1234` at memory location `0x1000`.
+In a big endian processor, it will be store like:
+
+| Address | Value |
+| ------- | ----- |
+| 0x1000  | 0x12  |
+| 0x1001  | 0x34  |
+
+In a little endian processor it will be stored like:
+
+| Address | Value |
+| ------- | ----- |
+| 0x1000  | 0x34  |
+| 0x1001  | 0x12  |
+
+## The CPU Core
+
+It is the CPU core's job to read the instructions from meory and simulate their
+behavior.
+
+### Processor Registers
+
+The first thing you need in a CPU core is to define variables for the various
+internal registers in the CPU.
+
+For example the 6502 CPU has 6 internal registers:
+
+- The program counter
+- The stack pointer
+- The status register
+- The X,Y registers
+- The accumulator
+
+The PC is 16-bits wide and the others are all 8-bits so they could be defined in
+C like this:
+
+```C
+unsigned int program_counter;
+unsigned char stack_pointer, status_register, x_reg, y_reg, accumulator;
+```
+
+The status register is composed of a series of 1 bit flags. The individual flags
+are used extensively by the CPU, but they are rarely used in the form of a
+complete 8-bit number, so it is more efficient to handle each flag as a separate
+variable:
+
+```C
+int zero_flag;
+int sign_flag;
+int overflow_flag;
+int break_flag;
+int decimal_flag;
+int interrupt_flag;
+int carry_flag;
+```
+
+### CPU Reset
+
+The next routine we need is one to simulate the reset of the CPU. When a system
+starts up it usually holds the processor in reset for a short period of time
+called a Power On Reset. THe POR will force the internal registers in the
+processor to a known state.
+
+### Execution
+
+The next thing we need in the CPU core is the actual command execution routine.
+In this routine we will read the opcodes from memory and call the appropriate
+routine to simulate the function of that instruction.
+
+The address in the PC tells us where the next opcode to be executed is so we use
+that to read the opcode from the memory array.
+
+### Timing
+
+The next thing we need in our CPU core is a way of tracking the passage of time
+in our emulated system. In the real hardware, the CPU is controlled by a clock
+of a specific frequency. Each instruction that the CPU is can execute will take
+1 or more of these clock cycles to execute.
+
+In our CPU core we are go to do things in reverse; instead of the clock driving
+the CPU core, we are going to have the CPU core drive the clock.
+
+For example the LDA immediate instruction takes 2 CPU clock cycles to execute.
+So lets say our CPU input clock is 2Mhz: 1/2Mhz = .0000005 seconds (.5µs ) per
+CPU cycle, so our LDA instruction will take 1μs to execute. Thus we can say that
+1μs of emulated time has passed during the execution of that instruction.
+
+This timing will be used for various things in our emulator, for example it can
+be used for video timing. Most video displays update every 1/60 sec, so we may
+want to run our CPU for 1/60 sec update the display, etc.
+
+Most CPU cores are implemented to execute for a specific number of clock cycles.
+
+### Interrupts
+
+In a real system interrupts will occur independent of the processor. In an
+emulator we have to be actively looking for the event that causes an interrupt
+and when it occurs we then call a routine which cause the processor handle an
+interrupt call.
+
+## Memory
+
+### Allocating Memory
+
+The most straghtforward way of handling memory is to allocate a block of memory
+the full size of the memory space for each processor you are emulating.
+
+### Loading Memory
+
+All processor systems must have some sort of permanent memory to at least get
+them started. This usually comes in the form of ROM or ROMS. Since these have to
+be present at startup we need a way to load them into memory before the
+emulation is started.
+
+Some console ROM dumps have headers attached to the ROM which aren't part of the
+actual data. In these cases this header data will have to be loaded separately
+then the data from the ROM can be loaded into the emulator's memory space.
+
+Another problem with console ROMS is that they sometime have variable lengths.
+With these ROMS it will first be necessary to determine the length of the ROM
+file before you can actually load it. These types of ROMS are also very often
+"bank switched" meaning that the entire ROM does not get loaded into the
+emulators memory space at the start. Some of it will be loaded into the memory
+space and part will be loaded into some temporary memory buffers.
+
+### Memory Handlers
+
+Whenever the CPU needs to read data from memory it will call a read handler and
+whenever it needs to write data to memory it will call a write handler.
+
+A memory map tell you what addresses each device is at. Here is a sample memory
+map:
+
+| Address Range   | Permissions | Device        |
+| --------------- | ----------- | ------------- |
+| 0x0000 - 0x0FFF | R/W         | RAM           |
+| 0x1000 - 0x1FFF | R/W         | Video RAM     |
+| 0x2000          | R           | Read Joystick |
+| 0x3000 - 0x300F | W           | Sound Chip    |
+| 0xE000 - 0xFFFF | R           | ROM           |
+
+Different hardware will return will return different results on an undefined
+memory access but emulating this usually isn't important, although sometimes it
+is.
+
+### Optimizing Memory Handlers
+
+Memory handlers can have a big impact on the speed of your emulator. In a high
+level language like C when a jump is made to a routine the CPU registers of the
+host machine are saved then restored at the end of the routine. This takes time
+so we want to avoid jumping out of the CPU core as much as possible.
+
+We know that opcodes are always going to come from RAM or ROM so we can read
+them directly from the memory array instead of having to do all the decoding.
+
+Another possibility is to eliminate the read and/or write handlers completely,
+but this can only be done in certain situations. For example lets say that the
+only input that a system has is a register that contains the status of a
+joystick input. To get around using a read handler in this case we could
+periodically read the joystick on the host system and write this information
+into the appropriate location in the memory array. Now whenever the processor
+needs to read the joystick port it can just read it from the memory array.
+
+The write handlers can be a little more tricky to get rid of. If the system you
+are emulating just writes data to output registers that don't need to be acted
+on immediately then you may be able to get rid of the write handler. For
+example, maybe the system writes to a port in the video controller chip that
+sets the background color of the screen. The CPU core can put this directly into
+the memory array since you won't actually need it until you draw the screen.
+
+Some systems have "trigger" addresses. When written to, these addresses trigger
+something to happen immediately regardless of what data is written to them.
+
+Another way that this can be optimized is to do some of the address decoding in
+the CPU core so that calls don't have to be made out of the core every time a
+memory access happens.
+
+## Sources
+
 [How Do I Write an Emulator](https://www.atarihq.com/danb/files/emu_vol1.txt)
