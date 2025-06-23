@@ -189,6 +189,32 @@ system.
 
 ## DMA (Direct Memory Access)
 
+### Object Attribute Memory (OAM) DMA
+
+OAM DMA is a high-throughput mechanism for copying data to the Object Attribute
+Memory (OAM a.k.a. sprite memory). It can copy one byte per machine cycle
+without involving the CPU at all, which is much faster than the fastest possible
+`memcpy` routine that can be written with the SM83 instruction set. However, a
+transfer cannot be cancelled and the transfer length cannot be controlled.
+
+The GB CPU chip contains a DMA controller that coordinates transfers between a
+source area and the OAM area independently of the CPU. While a transfer is in
+progress, it takes control of the source bus and the OAM area, so some
+precaution is needed with memory accesses to avoid conflicts. OAM DMA uses a
+different address decoding scheme than normal memory accesses, so the source bus
+is always either the external bus or the video RAM bus, and the contents
+normally visible to the CPU in the 0xFE00 - 0xFFFF address rangecannot be used
+as a source for OAM DMA transfers.
+
+The upper 8 bits of the OAM DMA source address are stored in the DMA register,
+while the lower 8 bits used by both the source and target addresses are stored
+in the DMA controller and are not accessible directly. A transfer always begins
+with 0x00 in the lower bits and copies exactly 160 bytes.
+
+Writing to the DMA register updates the upper bits of the DMA source address and
+also triggers an OAM DMA transfer request, although the DMA transfer does not
+begin immediately.
+
 ## Sources
 
 [Game Boy: Complete Technical Reference](https://gekkio.fi/files/gb-docs/gbctr.pdf)
