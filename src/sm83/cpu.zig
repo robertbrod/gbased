@@ -3,7 +3,7 @@ const memory = @import("memory");
 
 const ALU = @import("alu.zig").ALU;
 const RegisterFile = @import("register_file.zig").RegisterFile;
-const idu = @import("idu.zig");
+const IDU = @import("idu.zig").IDU;
 const InstructionSet = @import("instructions.zig").InstructionSet;
 
 const Options = struct {
@@ -18,17 +18,20 @@ pub fn SM83CPU() type {
         mmu: *const memory.MemoryManagementUnit(),
 
         alu: ALU(),
+        idu: IDU(),
         register_file: *RegisterFile(),
         // instruction_set: InstructionSet,
 
         pub fn init(options: Options) !Self {
             const register_file = try RegisterFile().init(options.alloc);
             const alu = ALU().init();
+            const idu = IDU().init();
 
             const new_cpu: Self = .{
                 .mmu = options.mmu,
 
                 .alu = alu,
+                .idu = idu,
                 .register_file = register_file,
                 // .instruction_set = try InstructionSet.init(alloc),
             };
@@ -39,6 +42,7 @@ pub fn SM83CPU() type {
         pub fn deinit(self: *Self) void {
             // Cleanup logic
             self.alu.deinit();
+            self.idu.deinit();
             self.register_file.deinit();
 
             // self.instruction_set.deinit();
