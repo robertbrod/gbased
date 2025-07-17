@@ -25,30 +25,34 @@ const Instruction = struct {
     }
 };
 
-pub const InstructionSet = struct {
-    gpa: std.mem.Allocator,
-    instructions: []Instruction,
+pub fn InstructionSet() type {
+    return struct {
+        const Self = @This();
 
-    pub fn init(gpa: std.mem.Allocator) !@This() {
-        const instruction_types = @typeInfo(InstructionType).@"enum";
+        gpa: std.mem.Allocator,
+        instructions: []Instruction,
 
-        const instructions = try gpa.alloc(Instruction, instruction_types.fields.len);
+        pub fn init(gpa: std.mem.Allocator) !Self {
+            const instruction_types = @typeInfo(InstructionType).@"enum";
 
-        inline for (instruction_types.fields, 0..) |instruction_type, i| {
-            instructions[i] = Instruction{ .instruction_type = @enumFromInt(instruction_type.value) };
+            const instructions = try gpa.alloc(Instruction, instruction_types.fields.len);
+
+            inline for (instruction_types.fields, 0..) |instruction_type, i| {
+                instructions[i] = Instruction{ .instruction_type = @enumFromInt(instruction_type.value) };
+            }
+
+            return .{ .gpa = gpa, .instructions = instructions };
         }
 
-        return .{ .gpa = gpa, .instructions = instructions };
-    }
-
-    pub fn deinit(self: *@This()) void {
-        self.gpa.free(self.instructions);
-    }
-};
+        pub fn deinit(self: *Self) void {
+            self.gpa.free(self.instructions);
+        }
+    };
+}
 
 test "Create InstructionSet" {
     const gpa = std.testing.allocator;
-    var instruction_set = try InstructionSet.init(gpa);
+    var instruction_set = try InstructionSet().init(gpa);
     defer instruction_set.deinit();
 
     // Test that the instruction set initializes correctly

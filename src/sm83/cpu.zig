@@ -20,12 +20,13 @@ pub fn SM83CPU() type {
         alu: ALU(),
         idu: IDU(),
         register_file: *RegisterFile(),
-        // instruction_set: InstructionSet,
+        instruction_set: InstructionSet(),
 
         pub fn init(options: Options) !Self {
             const register_file = try RegisterFile().init(options.alloc);
             const alu = ALU().init();
             const idu = IDU().init();
+            const instruction_set = try InstructionSet().init(options.alloc);
 
             const new_cpu: Self = .{
                 .mmu = options.mmu,
@@ -33,7 +34,7 @@ pub fn SM83CPU() type {
                 .alu = alu,
                 .idu = idu,
                 .register_file = register_file,
-                // .instruction_set = try InstructionSet.init(alloc),
+                .instruction_set = instruction_set,
             };
 
             return new_cpu;
@@ -44,8 +45,7 @@ pub fn SM83CPU() type {
             self.alu.deinit();
             self.idu.deinit();
             self.register_file.deinit();
-
-            // self.instruction_set.deinit();
+            self.instruction_set.deinit();
         }
 
         // TODO: implement action instruction timing
