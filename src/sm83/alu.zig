@@ -1,9 +1,16 @@
-pub const ALU = struct {
-    pub fn init() ALU {
-        return .{};
-    }
+pub fn ALU() type {
+    return struct {
+        const Self = @This();
 
-    pub fn deinit(_: *ALU) void {
-        // Cleanup logic for ALU if needed
-    }
-};
+        pub fn init() Self {
+            return .{};
+        }
+
+        pub fn deinit(_: *Self) void {}
+    };
+}
+
+test "ALU Initialization" {
+    const alu = ALU().init();
+    defer alu.deinit();
+}
