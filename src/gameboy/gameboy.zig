@@ -6,12 +6,12 @@ pub fn GameBoy() type {
     return struct {
         const Self = @This();
 
-        soc: SoC(),
-        timer: Timer(),
+        soc: *SoC(),
+        timer: *Timer(),
 
         pub fn init(alloc: std.mem.Allocator) !Self {
-            const timer = Timer().init(alloc);
-            const soc = try SoC().init(alloc);
+            const timer = try Timer().init(alloc);
+            const soc = try SoC().init(alloc, timer);
 
             return .{
                 .soc = soc,
@@ -26,9 +26,11 @@ pub fn GameBoy() type {
 
         pub fn start(self: *Self) !void {
             try self.timer.start();
+            try self.soc.start();
         }
 
         pub fn stop(self: *Self) void {
+            self.soc.stop();
             self.timer.stop();
         }
     };

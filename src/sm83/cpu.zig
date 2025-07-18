@@ -1,5 +1,7 @@
 const std = @import("std");
 const memory = @import("memory");
+const timer = @import("timer");
+const ThreadParams = @import("common").ThreadParams;
 
 const ALU = @import("alu.zig").ALU;
 const RegisterFile = @import("register_file.zig").RegisterFile;
@@ -8,14 +10,24 @@ const InstructionSet = @import("instructions.zig").InstructionSet;
 
 const Options = struct {
     alloc: std.mem.Allocator,
-    mmu: *const memory.MemoryManagementUnit(),
+    mmu: *memory.MemoryManagementUnit(),
+    timer: *timer.Timer(),
 };
 
 pub fn SM83CPU() type {
     return struct {
         const Self = @This();
 
-        mmu: *const memory.MemoryManagementUnit(),
+        // Allocation
+        alloc: std.mem.Allocator,
+
+        // Threading
+        thread: ?*std.Thread,
+        thread_params: ThreadParams,
+
+        // External pointers
+        timer: *timer.Timer(),
+        mmu: *memory.MemoryManagementUnit(),
 
         alu: ALU(),
         idu: IDU(),
@@ -29,6 +41,12 @@ pub fn SM83CPU() type {
             const instruction_set = try InstructionSet().init(options.alloc);
 
             const new_cpu: Self = .{
+                .alloc = options.alloc,
+
+                .thread = null,
+                .thread_params = .{},
+
+                .timer = options.timer,
                 .mmu = options.mmu,
 
                 .alu = alu,
@@ -48,7 +66,51 @@ pub fn SM83CPU() type {
             self.instruction_set.deinit();
         }
 
+        // TODO: probably move thread code into common struct
+        pub fn start(self: *Self) !void {
+            self.thread_params.mutex.lock();
+            defer self.thread_params.mutex.unlock();
+            self.thread = try self.alloc.create(std.Thread);
+
+            if (self.thread) |thread| {
+                thread.* = try std.Thread.spawn(.{}, process_instructions, .{self});
+            }
+        }
+
+        pub fn stop(self: *Self) void {
+            // Signal the thread to stop
+            self.thread_params.mutex.lock();
+            self.thread_params.stop_signal.signal();
+            self.thread_params.stop_flag = true;
+            self.thread_params.mutex.unlock();
+
+            if (self.thread) |thread| {
+                thread.join();
+                self.alloc.destroy(thread);
+                self.thread = null;
+            }
+        }
+
         // TODO: implement action instruction timing
+        pub fn process_instructions(self: *Self) !void {
+            // Subscribe to timer ticks
+            var tickSubscription = try self.timer.subscribe();
+            defer self.timer.unsubscribe(tickSubscription);
+
+            self.thread_params.mutex.lock();
+            defer self.thread_params.mutex.unlock();
+
+            // Simplifying assumption - timer will always be the first thing created and last thing destroyed
+            // We can rely on ticks coming through as long as this thread is alive
+            while (!self.thread_params.stop_flag) {
+                // Unlock while we wait to receive tick
+                self.thread_params.mutex.unlock();
+                _ = tickSubscription.receive();
+                self.thread_params.mutex.lock();
+
+                std.debug.print("CPU Tick\n", .{});
+            }
+        }
 
         pub fn process_instruction(self: *Self, opcode: u8) void {
             for (self.instruction_set.instructions) |inst| {

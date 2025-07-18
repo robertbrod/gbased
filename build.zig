@@ -46,6 +46,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "common", .module = common_mod },
             .{ .name = "memory", .module = memory_mod },
+            .{ .name = "timer", .module = timer_mod },
         },
     });
 
