@@ -4,6 +4,7 @@ const gameboy = @import("gameboy");
 const memory = @import("memory");
 
 pub fn main() !void {
+    const reader = std.io.getStdIn().reader();
     var debug = std.heap.DebugAllocator(.{}).init;
     const allocator = debug.allocator();
     defer std.debug.assert(debug.deinit() == std.heap.Check.ok);
@@ -11,6 +12,9 @@ pub fn main() !void {
     var gb = try gameboy.GameBoy().init(allocator);
     defer gb.deinit();
 
-    // Prints to stderr, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    try gb.start();
+
+    _ = try reader.readByte();
+
+    gb.stop();
 }
