@@ -1,32 +1,60 @@
 const std = @import("std");
+const PCQueue = @import("common").PCQueue;
+const PCQueueErrors = @import("common").PCQueueErrors;
 
 pub fn Timer() type {
     return struct {
         const Self = @This();
+        const Subscription = PCQueue(bool);
+
+        // Timer frequency
         // const TimerFrequency = 0x400000;
-        const TimerFrequency = 0x1;
+        const TimerFrequency = 0x10;
         const TimerInterval: f64 = @as(f64, @floatFromInt(std.time.ns_per_s)) / TimerFrequency;
         const TimerEdgeInterval: f64 = TimerInterval / 2;
 
+        // Allocation
         alloc: std.mem.Allocator,
+
+        // Threading
         thread: ?*std.Thread,
         mutex: std.Thread.Mutex,
         stop_flag: bool,
         stop_signal: std.Thread.Condition,
 
-        pub fn init(alloc: std.mem.Allocator) !Self {
+        // Subscriptions
+        subscriptions: std.ArrayList(*Subscription),
+
+        pub fn init(alloc: std.mem.Allocator) Self {
+            std.debug.print("Tick Interval {d}ns\n", .{TimerInterval});
+
             return .{
                 .alloc = alloc,
+
                 .thread = null,
                 .mutex = std.Thread.Mutex{},
                 .stop_flag = false,
                 .stop_signal = std.Thread.Condition{},
+
+                .subscriptions = std.ArrayList(*Subscription).init(alloc),
             };
         }
 
         pub fn deinit(self: *Self) void {
             // Make sure we are stopped
             self.stop();
+
+            for (self.subscriptions.items) |subscription| {
+                subscription.deinit();
+            }
+
+            self.subscriptions.deinit();
+        }
+
+        pub fn subscribe(self: *Self) !Subscription.Consumer {
+            try self.subscriptions.append(try Subscription.init(self.alloc, 100));
+
+            return self.subscriptions.getLast().consumer;
         }
 
         pub fn start(self: *Self) !void {
@@ -35,8 +63,6 @@ pub fn Timer() type {
             self.thread = try self.alloc.create(std.Thread);
 
             if (self.thread) |thread| {
-                std.debug.print("{*}\n", .{thread});
-                std.debug.print("Main: {*}\n", .{self});
                 thread.* = try std.Thread.spawn(.{}, tick, .{self});
             }
         }
@@ -56,7 +82,6 @@ pub fn Timer() type {
         }
 
         pub fn tick(self: *Self) !void {
-            std.debug.print("Thread: {*}\n", .{self});
             const threadStart = std.time.nanoTimestamp();
             var nextTick: f64 = 0;
             var riseEdge = true;
@@ -81,6 +106,17 @@ pub fn Timer() type {
                             // Execute tick notifications here
                             if (riseEdge) {
                                 std.debug.print("Tick: Rise Edge\n", .{});
+
+                                for (self.subscriptions.items) |subscription| {
+                                    subscription.producer.send(true) catch |queue_err| {
+                                        if (queue_err == PCQueueErrors.QueueFull) {
+                                            std.debug.print("Tick: Queue Full\n", .{});
+                                            // Ignore queue full errors with sending ticks
+                                        } else {
+                                            return queue_err;
+                                        }
+                                    };
+                                }
                             } else {
                                 std.debug.print("Tick: Fall Edge\n", .{});
                             }

@@ -1,7 +1,5 @@
 const std = @import("std");
-const sm83 = @import("sm83");
 const gameboy = @import("gameboy");
-const memory = @import("memory");
 
 pub fn main() !void {
     const reader = std.io.getStdIn().reader();

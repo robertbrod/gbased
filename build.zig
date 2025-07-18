@@ -22,9 +22,17 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    const common_mod = b.addModule("common", .{
+        .root_source_file = b.path("src/common/root.zig"),
+        .target = target,
+    });
+
     const timer_mod = b.addModule("timer", .{
         .root_source_file = b.path("src/timer/root.zig"),
         .target = target,
+        .imports = &.{
+            .{ .name = "common", .module = common_mod },
+        },
     });
 
     const memory_mod = b.addModule("memory", .{
@@ -36,6 +44,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/sm83/root.zig"),
         .target = target,
         .imports = &.{
+            .{ .name = "common", .module = common_mod },
             .{ .name = "memory", .module = memory_mod },
         },
     });
@@ -44,6 +53,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/gameboy/root.zig"),
         .target = target,
         .imports = &.{
+            .{ .name = "common", .module = common_mod },
             .{ .name = "sm83", .module = sm83_mod },
             .{ .name = "memory", .module = memory_mod },
             .{ .name = "timer", .module = timer_mod },
@@ -88,8 +98,6 @@ pub fn build(b: *std.Build) void {
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
                 .{ .name = "gameboy", .module = gameboy_mod },
-                .{ .name = "sm83", .module = sm83_mod },
-                .{ .name = "memory", .module = memory_mod },
             },
         }),
     });
@@ -131,6 +139,10 @@ pub fn build(b: *std.Build) void {
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to
     // set the releative field.
+    const common_tests = b.addTest(.{
+        .root_module = common_mod,
+    });
+
     const memory_management_unit_tests = b.addTest(.{
         .root_module = memory_mod,
     });
@@ -152,6 +164,7 @@ pub fn build(b: *std.Build) void {
     const run_sm83_tests = b.addRunArtifact(sm83_tests);
     const run_gameboy_tests = b.addRunArtifact(gameboy_tests);
     const run_timer_tests = b.addRunArtifact(timer_tests);
+    const run_common_tests = b.addRunArtifact(common_tests);
 
     // Creates an executable that will run `test` blocks from the executable's
     // root module. Note that test executables only test one module at a time,
@@ -169,6 +182,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_memory_management_unit_tests.step);
     test_step.dependOn(&run_timer_tests.step);
+    test_step.dependOn(&run_common_tests.step);
     test_step.dependOn(&run_sm83_tests.step);
     test_step.dependOn(&run_exe_tests.step);
     test_step.dependOn(&run_gameboy_tests.step);

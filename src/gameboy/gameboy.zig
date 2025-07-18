@@ -10,8 +10,8 @@ pub fn GameBoy() type {
         timer: Timer(),
 
         pub fn init(alloc: std.mem.Allocator) !Self {
+            const timer = Timer().init(alloc);
             const soc = try SoC().init(alloc);
-            const timer = try Timer().init(alloc);
 
             return .{
                 .soc = soc,
