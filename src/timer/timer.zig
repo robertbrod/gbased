@@ -1,40 +1,34 @@
 const std = @import("std");
 const PCQueue = @import("common").PCQueue;
-const ThreadParams = @import("common").ThreadParams;
 const PCQueueErrors = @import("common").PCQueueErrors;
 
 pub fn Timer() type {
     return struct {
         const Self = @This();
-        const Subscription = PCQueue(bool);
+        const Subscription = PCQueue(u32);
 
         // Timer frequency
-        // const TimerFrequency = 0x400000;
-        const TimerFrequency = 0x4;
+        const TimerFrequency = 0x400000;
+        // const TimerFrequency = 0x4;
         const TimerInterval: f64 = @as(f64, @floatFromInt(std.time.ns_per_s)) / TimerFrequency;
-        const TimerEdgeInterval: f64 = TimerInterval / 2;
 
         // Allocation
         alloc: std.mem.Allocator,
 
         // Threading
-        thread: ?*std.Thread,
-        thread_params: ThreadParams,
+        thread: ?*std.Thread = null,
+        stop_flag: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+        mutex: std.Thread.Mutex = .{},
 
         // Subscriptions
-        subscriptions: std.ArrayList(*Subscription),
+        clock_subscriptions: std.ArrayList(*Subscription),
 
         pub fn init(alloc: std.mem.Allocator) !*Self {
-            std.debug.print("Tick Interval {d}ns\n", .{TimerInterval});
-
             const new_timer = try alloc.create(Self);
             new_timer.* = .{
                 .alloc = alloc,
 
-                .thread = null,
-                .thread_params = .{},
-
-                .subscriptions = std.ArrayList(*Subscription).init(alloc),
+                .clock_subscriptions = std.ArrayList(*Subscription).init(alloc),
             };
 
             return new_timer;
@@ -44,26 +38,31 @@ pub fn Timer() type {
             // Make sure we are stopped
             self.stop();
 
-            for (self.subscriptions.items) |subscription| {
+            for (self.clock_subscriptions.items) |subscription| {
                 subscription.deinit();
             }
-
-            self.subscriptions.deinit();
+            self.clock_subscriptions.deinit();
 
             self.alloc.destroy(self);
         }
 
         pub fn subscribe(self: *Self) !Subscription.Consumer {
-            try self.subscriptions.append(try Subscription.init(self.alloc, 100));
+            self.mutex.lock();
+            defer self.mutex.unlock();
 
-            return self.subscriptions.getLast().consumer;
+            try self.clock_subscriptions.append(try Subscription.init(self.alloc, 100));
+
+            return self.clock_subscriptions.getLast().consumer;
         }
 
         pub fn unsubscribe(self: *Self, sub: Subscription.Consumer) void {
-            for (0..self.subscriptions.items.len) |i| {
-                if (self.subscriptions.items[i] == sub.queue) {
-                    self.subscriptions.items[i].deinit();
-                    _ = self.subscriptions.orderedRemove(i);
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            for (0..self.clock_subscriptions.items.len) |i| {
+                if (self.clock_subscriptions.items[i] == sub.queue) {
+                    self.clock_subscriptions.items[i].deinit();
+                    _ = self.clock_subscriptions.orderedRemove(i);
 
                     return;
                 }
@@ -72,8 +71,6 @@ pub fn Timer() type {
 
         // TODO: probably move thread code into common
         pub fn start(self: *Self) !void {
-            self.thread_params.mutex.lock();
-            defer self.thread_params.mutex.unlock();
             self.thread = try self.alloc.create(std.Thread);
 
             if (self.thread) |thread| {
@@ -83,10 +80,7 @@ pub fn Timer() type {
 
         pub fn stop(self: *Self) void {
             // Signal the thread to stop
-            self.thread_params.mutex.lock();
-            self.thread_params.stop_signal.signal();
-            self.thread_params.stop_flag = true;
-            self.thread_params.mutex.unlock();
+            self.stop_flag.store(true, .monotonic);
 
             if (self.thread) |thread| {
                 thread.join();
@@ -96,46 +90,46 @@ pub fn Timer() type {
         }
 
         pub fn tick(self: *Self) !void {
-            const threadStart = std.time.nanoTimestamp();
+            // TODO: do we need rising edge and falling edge?
+
+            const startTime = std.time.nanoTimestamp();
+            var currentTime: f64 = 0;
             var nextTick: f64 = 0;
-            var riseEdge = true;
-            while (!self.thread_params.stop_flag) {
-                self.thread_params.mutex.lock();
-                defer self.thread_params.mutex.unlock();
+            var ticks: u32 = 0;
 
-                // Calculate delay for next tick
-                const executionTime = @as(f64, @floatFromInt(std.time.nanoTimestamp() - threadStart));
-                const delay = @as(u64, @intFromFloat(@max(nextTick - executionTime, 0)));
+            while (!self.stop_flag.load(.monotonic)) {
+                ticks = 0;
+                currentTime = @as(f64, @floatFromInt(std.time.nanoTimestamp() - startTime));
 
-                self.thread_params.stop_signal.timedWait(&self.thread_params.mutex, delay) catch |err| {
-                    // Wait timed out => the thread is not stopped
-                    if (err == error.Timeout) {
-                        // Bump next tick time
-                        nextTick += TimerEdgeInterval;
+                // Calculate the number of ticks that have passed since last loop
+                while (currentTime >= nextTick) {
+                    nextTick += TimerInterval;
+                    ticks += 1;
+                }
 
-                        // Execute tick notifications here
-                        if (riseEdge) {
-                            std.debug.print("Tick: Rise Edge\n", .{});
+                if (ticks > 0) {
+                    // Notify subscribers
+                    self.mutex.lock();
+                    defer self.mutex.unlock();
 
-                            for (self.subscriptions.items) |subscription| {
-                                subscription.producer.send(true) catch |queue_err| {
-                                    if (queue_err == PCQueueErrors.QueueFull) {
-                                        // Why is the queue full?
-                                        std.debug.assert(false);
-                                    } else {
-                                        return queue_err;
-                                    }
-                                };
+                    for (self.clock_subscriptions.items) |subscription| {
+                        subscription.producer.send(ticks) catch |queue_err| {
+                            if (queue_err == PCQueueErrors.QueueFull) {
+                                // We don't really care if the queue is full
+                            } else {
+                                return queue_err;
                             }
-                        } else {
-                            std.debug.print("Tick: Fall Edge\n", .{});
-                        }
-                        riseEdge = !riseEdge;
-
-                        continue;
+                        };
                     }
+                }
 
-                    return err;
+                // Yield thread to OS instead of sleeping to get a faster cycle
+                std.Thread.yield() catch |err| {
+                    if (err == std.Thread.YieldError.SystemCannotYield) {
+                        std.Thread.sleep(0);
+                    } else {
+                        return err;
+                    }
                 };
             }
         }

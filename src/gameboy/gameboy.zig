@@ -25,8 +25,8 @@ pub fn GameBoy() type {
         }
 
         pub fn start(self: *Self) !void {
-            try self.timer.start();
             try self.soc.start();
+            try self.timer.start();
         }
 
         pub fn stop(self: *Self) void {

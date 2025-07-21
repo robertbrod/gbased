@@ -44,6 +44,10 @@ pub fn PCQueue(comptime T: type) type {
             pub fn receive(self: *const Self) T {
                 return self.queue.receive();
             }
+
+            pub fn flush(self: *const Self) !std.ArrayList(T) {
+                return try self.queue.flush();
+            }
         };
 
         const Queue = @This();
@@ -119,6 +123,21 @@ pub fn PCQueue(comptime T: type) type {
             self.size -= 1;
 
             return item;
+        }
+
+        fn flush(self: *Queue) !std.ArrayList(T) {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            var items = std.ArrayList(T).init(self.alloc);
+
+            while (self.size > 0) {
+                try items.append(self.data[self.consumerIndex]);
+                self.consumerIndex = (self.consumerIndex + 1) % self.capacity;
+                self.size -= 1;
+            }
+
+            return items;
         }
     };
 }
