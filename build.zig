@@ -40,8 +40,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
 
-    const sm83_mod = b.addModule("sm83", .{
-        .root_source_file = b.path("src/sm83/root.zig"),
+    const sharp_lr35902_mod = b.addModule("sharp_lr35902", .{
+        .root_source_file = b.path("src/sharp_lr35902/root.zig"),
         .target = target,
         .imports = &.{
             .{ .name = "common", .module = common_mod },
@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .imports = &.{
             .{ .name = "common", .module = common_mod },
-            .{ .name = "sm83", .module = sm83_mod },
+            .{ .name = "sharp_lr35902", .module = sharp_lr35902_mod },
             .{ .name = "memory", .module = memory_mod },
             .{ .name = "timer", .module = timer_mod },
         },
@@ -152,8 +152,8 @@ pub fn build(b: *std.Build) void {
         .root_module = timer_mod,
     });
 
-    const sm83_tests = b.addTest(.{
-        .root_module = sm83_mod,
+    const sharp_lr35902_tests = b.addTest(.{
+        .root_module = sharp_lr35902_mod,
     });
 
     const gameboy_tests = b.addTest(.{
@@ -162,7 +162,7 @@ pub fn build(b: *std.Build) void {
 
     // A run step that will run the test executable.
     const run_memory_management_unit_tests = b.addRunArtifact(memory_management_unit_tests);
-    const run_sm83_tests = b.addRunArtifact(sm83_tests);
+    const run_sharp_lr35902_tests = b.addRunArtifact(sharp_lr35902_tests);
     const run_gameboy_tests = b.addRunArtifact(gameboy_tests);
     const run_timer_tests = b.addRunArtifact(timer_tests);
     const run_common_tests = b.addRunArtifact(common_tests);
@@ -184,7 +184,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_memory_management_unit_tests.step);
     test_step.dependOn(&run_timer_tests.step);
     test_step.dependOn(&run_common_tests.step);
-    test_step.dependOn(&run_sm83_tests.step);
+    test_step.dependOn(&run_sharp_lr35902_tests.step);
     test_step.dependOn(&run_exe_tests.step);
     test_step.dependOn(&run_gameboy_tests.step);
 

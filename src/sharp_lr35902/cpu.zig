@@ -1,28 +1,18 @@
 const std = @import("std");
 const memory = @import("memory");
-const timer = @import("timer");
-const ThreadParams = @import("common").ThreadParams;
+
+const options = @import("options.zig");
 
 const ALU = @import("alu.zig").ALU;
 const RegisterFile = @import("register_file.zig").RegisterFile;
 const IDU = @import("idu.zig").IDU;
 const InstructionSet = @import("instructions.zig").InstructionSet;
 
-const Options = struct {
-    alloc: std.mem.Allocator,
-    mmu: *memory.MemoryManagementUnit(),
-    timer: *timer.Timer(),
-};
-
 pub fn SM83CPU() type {
     return struct {
         const Self = @This();
 
-        // Allocation
-        alloc: std.mem.Allocator,
-
         // External pointers
-        timer: *timer.Timer(),
         mmu: *memory.MemoryManagementUnit(),
 
         // Processing
@@ -32,25 +22,15 @@ pub fn SM83CPU() type {
         register_file: *RegisterFile(),
         instruction_set: InstructionSet(),
 
-        pub fn init(options: Options) !Self {
-            const register_file = try RegisterFile().init(options.alloc);
-            const alu = ALU().init();
-            const idu = IDU().init();
-            const instruction_set = try InstructionSet().init(options.alloc);
+        pub fn init(opts: options.SoCOptions) !Self {
+            return .{
+                .mmu = opts.mmu,
 
-            const new_cpu: Self = .{
-                .alloc = options.alloc,
-
-                .timer = options.timer,
-                .mmu = options.mmu,
-
-                .alu = alu,
-                .idu = idu,
-                .register_file = register_file,
-                .instruction_set = instruction_set,
+                .alu = ALU().init(),
+                .idu = IDU().init(),
+                .register_file = try RegisterFile().init(opts.alloc),
+                .instruction_set = try InstructionSet().init(opts.alloc),
             };
-
-            return new_cpu;
         }
 
         pub fn deinit(self: *Self) void {

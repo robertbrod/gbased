@@ -1,13 +1,7 @@
 const std = @import("std");
 const memory = @import("memory");
-const timer = @import("timer");
-const ThreadParams = @import("common").ThreadParams;
 
-const Options = struct {
-    alloc: std.mem.Allocator,
-    mmu: *memory.MemoryManagementUnit(),
-    timer: *timer.Timer(),
-};
+const options = @import("options.zig");
 
 pub fn PPU() type {
     return struct {
@@ -17,19 +11,17 @@ pub fn PPU() type {
         alloc: std.mem.Allocator,
 
         // External pointers
-        timer: *timer.Timer(),
         mmu: *memory.MemoryManagementUnit(),
 
         // PPU State
         scan_line: u8 = 0,
         dot: u16 = 0,
 
-        pub fn init(options: Options) !Self {
+        pub fn init(opts: options.SoCOptions) !Self {
             const new_ppu: Self = .{
-                .alloc = options.alloc,
+                .alloc = opts.alloc,
 
-                .timer = options.timer,
-                .mmu = options.mmu,
+                .mmu = opts.mmu,
             };
 
             return new_ppu;

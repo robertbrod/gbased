@@ -45,8 +45,8 @@ pub fn PCQueue(comptime T: type) type {
                 return self.queue.receive();
             }
 
-            pub fn flush(self: *const Self) !std.ArrayList(T) {
-                return try self.queue.flush();
+            pub fn flush(self: *const Self, queue: []T) u16 {
+                return self.queue.flush(queue);
             }
         };
 
@@ -125,19 +125,24 @@ pub fn PCQueue(comptime T: type) type {
             return item;
         }
 
-        fn flush(self: *Queue) !std.ArrayList(T) {
+        fn flush(self: *Queue, queue: []T) u16 {
             self.mutex.lock();
             defer self.mutex.unlock();
 
-            var items = std.ArrayList(T).init(self.alloc);
-
-            while (self.size > 0) {
-                try items.append(self.data[self.consumerIndex]);
-                self.consumerIndex = (self.consumerIndex + 1) % self.capacity;
-                self.size -= 1;
+            // Block until we have a message to receive
+            while (self.size == 0) {
+                self.condition.wait(&self.mutex);
             }
 
-            return items;
+            var count: u16 = 0;
+            while (self.size > 0) {
+                queue[count] = self.data[self.consumerIndex];
+                self.consumerIndex = (self.consumerIndex + 1) % self.capacity;
+                self.size -= 1;
+                count += 1;
+            }
+
+            return count;
         }
     };
 }

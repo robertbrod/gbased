@@ -37,7 +37,7 @@ pub fn MemoryManagementUnit() type {
         io_registers: [0x80]u8,
 
         // FF80-FFFE:   High RAM (HRAM).
-        high_ram: [0x7F]u8,
+        high_ram: ?*[0x7F]u8 = null,
 
         // FFFF-FFFF:   Interrupt Enable register (IE)
         ie_register: u8,
@@ -55,7 +55,6 @@ pub fn MemoryManagementUnit() type {
                 .work_ram = [_]u8{0} ** 0x2000,
                 .object_attribute_memory = [_]u8{0} ** 0xA0,
                 .io_registers = [_]u8{0} ** 0x80,
-                .high_ram = [_]u8{0} ** 0x7F,
                 .ie_register = 0,
             };
 
@@ -65,6 +64,10 @@ pub fn MemoryManagementUnit() type {
         pub fn deinit(self: *Self) void {
             // Deallocate memory from heap
             self.alloc.destroy(self);
+        }
+
+        pub fn mapHighRAM(self: *Self, high_ram: *[0x7F]u8) void {
+            self.high_ram = high_ram;
         }
 
         pub fn getMemory(self: *Self, address: u16) MemoryErrors!u8 {
