@@ -4,6 +4,9 @@ pub const MemoryErrors = error{
     InvalidMemory,
 };
 
+// TODO: implement better/more accurate behavior around accessing memory that are blocked off
+// E.g. reading/writing from OAM when it should be blocked off
+// For now it is just returning 0xFF which seems to be the more common behavior in these situations
 pub fn MemoryManagementUnit() type {
     return struct {
         const Self = @This();
@@ -70,7 +73,7 @@ pub fn MemoryManagementUnit() type {
             self.high_ram = high_ram;
         }
 
-        pub fn getMemory(self: *Self, address: u16) MemoryErrors!u8 {
+        pub fn getMemory(self: *Self, address: u16) u8 {
             // Map address to appropriate memory location
             if (address <= 0x7FFF) {
                 // catridge_rom
@@ -100,7 +103,6 @@ pub fn MemoryManagementUnit() type {
                 // Echo RAM - prohibited
                 // Start: 1110 0000 0000 0000
                 // End:   1111 1101 1111 1111
-                return MemoryErrors.InvalidMemory;
             } else if (address <= 0xFE9F) {
                 // object_attribute_memory
                 // Start: 1111 1110 0000 0000
@@ -111,7 +113,6 @@ pub fn MemoryManagementUnit() type {
                 // Prohibited
                 // Start: 1111 1110 1010 0000
                 // End:   1111 1110 1111 1111
-                return MemoryErrors.InvalidMemory;
             } else if (address <= 0xFF7F) {
                 // io_registers
                 // Start: 1111 1111 0000 0000
@@ -123,20 +124,150 @@ pub fn MemoryManagementUnit() type {
                 // Start: 1111 1111 1000 0000
                 // End:   1111 1111 1111 1110
                 // Mask:  0000 0000 0111 1111
-                return self.high_ram[address & 0x7F];
+                if (self.high_ram) |high_ram| {
+                    return high_ram[address & 0x7F];
+                }
             } else if (address == 0xFFFF) {
                 // ie_register
                 // 1111 1111 1111 1111
                 return self.ie_register;
+            }
+
+            return 0xFF;
+        }
+
+        pub fn getMemoryPointer(self: *Self, address: u16) MemoryErrors!*u8 {
+            // Map address to appropriate memory location
+            if (address <= 0x7FFF) {
+                // catridge_rom
+                // Start: 0000 0000 0000 0000
+                // End:   0111 1111 1111 1111
+                // Mask:  0111 1111 1111 1111
+                return &self.cartridge_rom[address & 0x7FFF];
+            } else if (address <= 0x9FFF) {
+                // video_ram
+                // Start: 1000 0000 0000 0000
+                // End:   1001 1111 1111 1111
+                // Mask:  0001 1111 1111 1111
+                return &self.video_ram[address & 0x1FFF];
+            } else if (address <= 0xBFFF) {
+                // external_ram
+                // Start: 1010 0000 0000 0000
+                // End:   1011 1111 1111 1111
+                // Mask:  0001 1111 1111 1111
+                return &self.external_ram[address & 0x1FFF];
+            } else if (address <= 0xDFFF) {
+                // work_ram
+                // Start: 1100 0000 0000 0000
+                // End:   1101 1111 1111 1111
+                // Mask:  0001 1111 1111 1111
+                return &self.work_ram[address & 0x1FFF];
+            } else if (address <= 0xFDFF) {
+                // Echo RAM - prohibited
+                // Start: 1110 0000 0000 0000
+                // End:   1111 1101 1111 1111
+                return MemoryErrors.InvalidMemory;
+            } else if (address <= 0xFE9F) {
+                // object_attribute_memory
+                // Start: 1111 1110 0000 0000
+                // End:   1111 1110 1001 1111
+                // Mask:  0000 0000 1111 1111
+                return &self.object_attribute_memory[address & 0xFF];
+            } else if (address <= 0xFEFF) {
+                // Prohibited
+                // Start: 1111 1110 1010 0000
+                // End:   1111 1110 1111 1111
+                return MemoryErrors.InvalidMemory;
+            } else if (address <= 0xFF7F) {
+                // io_registers
+                // Start: 1111 1111 0000 0000
+                // End:   1111 1111 0111 1111
+                // Mask:  0000 0000 0111 1111
+                return &self.io_registers[address & 0x7F];
+            } else if (address <= 0xFFFE) {
+                //high_ram
+                // Start: 1111 1111 1000 0000
+                // End:   1111 1111 1111 1110
+                // Mask:  0000 0000 0111 1111
+                if (self.high_ram) |high_ram| {
+                    return &high_ram[address & 0x7F];
+                }
+            } else if (address == 0xFFFF) {
+                // ie_register
+                // 1111 1111 1111 1111
+                return &self.ie_register;
             } else {
                 return MemoryErrors.InvalidMemory;
             }
 
             return MemoryErrors.InvalidMemory;
         }
-    };
 
-    // pub fn setMemory(_: *Self, address: u16, val: u8) void {}
+        pub fn setMemory(self: *Self, address: u16, val: u8) void {
+            // Map address to appropriate memory location
+            if (address <= 0x7FFF) {
+                // catridge_rom
+                // Start: 0000 0000 0000 0000
+                // End:   0111 1111 1111 1111
+                // Mask:  0111 1111 1111 1111
+                self.cartridge_rom[address & 0x7FFF] = val;
+            } else if (address <= 0x9FFF) {
+                // video_ram
+                // Start: 1000 0000 0000 0000
+                // End:   1001 1111 1111 1111
+                // Mask:  0001 1111 1111 1111
+                self.video_ram[address & 0x1FFF] = val;
+            } else if (address <= 0xBFFF) {
+                // external_ram
+                // Start: 1010 0000 0000 0000
+                // End:   1011 1111 1111 1111
+                // Mask:  0001 1111 1111 1111
+                self.external_ram[address & 0x1FFF] = val;
+            } else if (address <= 0xDFFF) {
+                // work_ram
+                // Start: 1100 0000 0000 0000
+                // End:   1101 1111 1111 1111
+                // Mask:  0001 1111 1111 1111
+                self.work_ram[address & 0x1FFF] = val;
+            } else if (address <= 0xFDFF) {
+                // Echo RAM - prohibited
+                // Start: 1110 0000 0000 0000
+                // End:   1111 1101 1111 1111
+                // No-op
+            } else if (address <= 0xFE9F) {
+                // object_attribute_memory
+                // Start: 1111 1110 0000 0000
+                // End:   1111 1110 1001 1111
+                // Mask:  0000 0000 1111 1111
+                self.object_attribute_memory[address & 0xFF] = val;
+            } else if (address <= 0xFEFF) {
+                // Prohibited
+                // Start: 1111 1110 1010 0000
+                // End:   1111 1110 1111 1111
+                // No-op
+            } else if (address <= 0xFF7F) {
+                // io_registers
+                // Start: 1111 1111 0000 0000
+                // End:   1111 1111 0111 1111
+                // Mask:  0000 0000 0111 1111
+                self.io_registers[address & 0x7F] = val;
+            } else if (address <= 0xFFFE) {
+                //high_ram
+                // Start: 1111 1111 1000 0000
+                // End:   1111 1111 1111 1110
+                // Mask:  0000 0000 0111 1111
+                if (self.high_ram) |high_ram| {
+                    high_ram[address & 0x7F] = val;
+                }
+            } else if (address == 0xFFFF) {
+                // ie_register
+                // 1111 1111 1111 1111
+                self.ie_register = val;
+            }
+
+            // No-op
+        }
+    };
 }
 
 test "Fetch Memory" {

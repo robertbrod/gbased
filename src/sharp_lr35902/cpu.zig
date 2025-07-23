@@ -4,8 +4,9 @@ const memory = @import("memory");
 const options = @import("options.zig");
 
 const ALU = @import("alu.zig").ALU;
-const RegisterFile = @import("register_file.zig").RegisterFile;
 const IDU = @import("idu.zig").IDU;
+const DMA = @import("dma.zig").DMA;
+const RegisterFile = @import("register_file.zig").RegisterFile;
 const InstructionSet = @import("instructions.zig").InstructionSet;
 
 pub fn SM83CPU() type {
@@ -19,6 +20,7 @@ pub fn SM83CPU() type {
         tick_count: u8 = 0,
         alu: ALU(),
         idu: IDU(),
+        dma: DMA(),
         register_file: *RegisterFile(),
         instruction_set: InstructionSet(),
 
@@ -28,6 +30,7 @@ pub fn SM83CPU() type {
 
                 .alu = ALU().init(),
                 .idu = IDU().init(),
+                .dma = DMA().init(opts),
                 .register_file = try RegisterFile().init(opts.alloc),
                 .instruction_set = try InstructionSet().init(opts.alloc),
             };
@@ -37,6 +40,7 @@ pub fn SM83CPU() type {
             // Cleanup logic
             self.alu.deinit();
             self.idu.deinit();
+            self.dma.deinit();
             self.register_file.deinit();
             self.instruction_set.deinit();
         }
@@ -44,11 +48,17 @@ pub fn SM83CPU() type {
         // TODO: implement action instruction timing
         pub fn tick(self: *Self) void {
             if (self.tick_count == 0) {
-                // std.debug.print("CPU Tick\n", .{});
+                self.machineTick();
             }
 
             // A machine cycle happens every four ticks
             self.tick_count = (self.tick_count + 1) % 4;
+        }
+
+        fn machineTick(self: *Self) void {
+            // std.debug.print("CPU Tick\n", .{});
+
+            self.dma.machineTick();
         }
 
         pub fn process_instruction(self: *Self, opcode: u8) void {
