@@ -3,6 +3,7 @@ const memory = @import("memory");
 const SoC = @import("sharp_lr35902").SoC;
 const Clock = @import("clock.zig").Clock;
 const Timer = @import("timer").Timer;
+const CartridgeInterface = @import("cartridge_interface.zig").CartridgeInterface();
 
 pub fn GameBoy() type {
     return struct {
