@@ -141,12 +141,15 @@ const Cartridge = struct {
 
     header: CartridgeHeader,
 
-    cartridge_rom: []u8,
-    cartridge_ram: []u8,
+    rom: []u8,
+    ram: []u8,
 
     pub fn init(alloc: std.mem.Allocator, cartridge_buffer: []u8) !*Self {
         const cartridge = try alloc.create(Self);
         const header = CartridgeHeader.init(cartridge_buffer);
+
+        allocateRam(alloc, header);
+        allocateRom(alloc, header);
 
         cartridge.*{
             .alloc = alloc,
@@ -158,6 +161,36 @@ const Cartridge = struct {
 
     pub fn deinit(self: *Self) void {
         self.alloc.destroy(self);
+    }
+
+    fn allocateRam(self: *Self, alloc: std.mem.Allocator, header: *CartridgeHeader) void {
+        switch (header.ram_size) {
+            0x00 => self.ram = alloc.alloc(u8, 0),
+            0x01 => self.ram = alloc.alloc(u8, 0),
+            0x02 => self.ram = alloc.alloc(u8, 0x2000), // 8 KiB
+            0x03 => self.ram = alloc.alloc(u8, 0x4000), // 32 KiB
+            0x04 => self.ram = alloc.alloc(u8, 0x20000), // 128 KiB
+            0x05 => self.ram = alloc.alloc(u8, 0x10000), // 64 KiB
+            else => unreachable,
+        }
+    }
+
+    fn allocateRom(self: *Self, alloc: std.mem.Allocator, header: *CartridgeHeader) void {
+        switch (header.rom_size) {
+            0x00 => self.rom = alloc.alloc(u8, 0x4000), // 32 KiB
+            0x01 => self.rom = alloc.alloc(u8, 0x10000), // 64 KiB
+            0x02 => self.rom = alloc.alloc(u8, 0x20000), // 128 KiB
+            0x03 => self.rom = alloc.alloc(u8, 0x40000), // 256 KiB
+            0x04 => self.rom = alloc.alloc(u8, 0x80000), // 512 KiB
+            0x05 => self.rom = alloc.alloc(u8, 0x100000), // 1 MiB
+            0x06 => self.rom = alloc.alloc(u8, 0x200000), // 2 MiB
+            0x07 => self.rom = alloc.alloc(u8, 0x400000), // 4 MiB
+            0x08 => self.rom = alloc.alloc(u8, 0x800000), // 8 MiB
+            0x52 => self.rom = alloc.alloc(u8, 0x119999), // 1.1 MiB
+            0x53 => self.rom = alloc.alloc(u8, 0x133333), // 1.2 MiB
+            0x54 => self.rom = alloc.alloc(u8, 0x180000), // 1.5 MiB
+            else => unreachable,
+        }
     }
 };
 
