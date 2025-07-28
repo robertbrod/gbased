@@ -27,7 +27,7 @@ const CartridgeHeader = struct {
     // 0134-0143 - Title
     // These bytes contain the title of the game in upper case ASCII.
     // If the title is less than 16 characters long, the remaining bytes should be padded with $00s.
-    cartridge_title: [0x10]u8 = undefined,
+    title: [0x10]u8 = undefined,
 
     // 013F-0142 - Manufacturer code
     // In older cartridges these bytes were part of the Title.
@@ -101,15 +101,37 @@ const CartridgeHeader = struct {
 
     // 014D - Header checksum
     // This byte contains an 8-bit checksum computed from the cartridge header bytes $0134–014C
-    header_checksum: u8 = undefined,
+    checksum: u8 = undefined,
 
     // 014E - O14F - Global checksum
     global_checksum: [0x2]u8 = undefined,
 
     pub fn init(cartridge_buffer: []const u8) !Self {
         var header: Self = .{};
-        @memcpy(header.entry_point, cartridge_buffer[0x100..0x104]);
+
+        @memcpy(header.entry_point, cartridge_buffer[0x0100..0x0104]);
+        @memcpy(header.nintendo_logo, cartridge_buffer[0x0104..0x0134]);
+        @memcpy(header.title, cartridge_buffer[0x0134..0x0144]);
+        @memcpy(header.manufacturer_code, cartridge_buffer[0x013F..0x0143]);
+
+        header.cgb_flag = cartridge_buffer[0x0143];
+
+        @memcpy(header.new_licensee_code, cartridge_buffer[0x0144..0x0146]);
+
+        header.sgb_flag = cartridge_buffer[0x0146];
+        header.cartridge_type = cartridge_buffer[0x0147];
+        header.rom_size = cartridge_buffer[0x0148];
+        header.ram_size = cartridge_buffer[0x0149];
+        header.destination_code = cartridge_buffer[0x014A];
+        header.old_licensee_code = cartridge_buffer[0x014B];
+        header.version_number = cartridge_buffer[0x014C];
+        header.checksum = cartridge_buffer[0x014D];
+
+        @memcpy(header.global_checksum, cartridge_buffer[0x014E..0x0150]);
     }
+
+    // TODO validate header
+    pub fn validate() void {}
 };
 
 const Cartridge = struct {
@@ -118,6 +140,9 @@ const Cartridge = struct {
     alloc: std.mem.Allocator,
 
     header: CartridgeHeader,
+
+    cartridge_rom: []u8,
+    cartridge_ram: []u8,
 
     pub fn init(alloc: std.mem.Allocator, cartridge_buffer: []u8) !*Self {
         const cartridge = try alloc.create(Self);
@@ -141,7 +166,7 @@ pub fn CartridgeInterface() type {
         const Self = @This();
 
         alloc: std.mem.Allocator,
-        cartridge: ?Cartridge = null,
+        cartridge: ?*Cartridge = null,
 
         pub fn init(alloc: std.mem.Allocator) !*Self {
             const cartridge_interface = try alloc.create(Self);
@@ -167,7 +192,7 @@ pub fn CartridgeInterface() type {
                 cartridge.deinit();
             }
 
-            self.cartridge = Cartridge.init(self.alloc, cartridge_buffer);
+            self.cartridge = try Cartridge.init(self.alloc, cartridge_buffer);
         }
     };
 }
