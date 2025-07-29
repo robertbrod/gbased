@@ -1,27 +1,63 @@
 const std = @import("std");
 
 const CartridgeErrors = error{
-    SampleCartridgeError,
+    InvalidNintendoLogo,
 };
 
-// Example cartridge header:
-// 00000100: 00c3 5001 ceed 6666 cc0d 000b 0373 0083  ..P...ff.....s..
-// 00000110: 000c 000d 0008 111f 8889 000e dccc 6ee6  ..............n.
-// 00000120: dddd d999 bbbb 6763 6e0e eccc dddc 999f  ......gcn.......
-// 00000130: bbb9 333e 4a41 4d45 5320 2042 4f4e 4420  ..3>JAMES  BOND
-// 00000140: 2030 3037 3031 0303 0402 0133 009c fd22   00701.....3..."
+const CartridgeType = enum(u8) {
+    ROM_ONLY = 0x00,
+    MBC1 = 0x01,
+    MBC1_RAM = 0x02,
+    MBC1_RAM_BATTERY = 0x03,
+    MBC2 = 0x05,
+    MBC2_BATTERY = 0x06,
+    ROM_RAM = 0x08,
+    ROM_RAM_BATTERY = 0x09,
+    MMM01 = 0x0B,
+    MMM01_RAM = 0x0C,
+    MMM01_RAM_BATTERY = 0x0D,
+    MBC3_TIMER_BATTERY = 0x0F,
+    MBC3_TIMER_RAM_BATTERY = 0x10,
+    MBC3 = 0x11,
+    MBC3_RAM = 0x12,
+    MBC3_RAM_BATTERY = 0x13,
+    MBC5 = 0x19,
+    MBC5_RAM = 0x1A,
+    MBC5_RAM_BATTERY = 0x1B,
+    MBC5_RUMBLE = 0x1C,
+    MBC5_RUMBLE_RAM = 0x1D,
+    MBC5_RUMBLE_RAM_BATTERY = 0x1E,
+    MBC6 = 0x20,
+    MBC7_SENSOR_RUMBLE_RAM_BATTERY = 0x22,
+    POCKET_CAMERA = 0xFC,
+    BANDAI_TAMA5 = 0xFD,
+    HuC3 = 0xFE,
+    HuC1_RAM_BATTERY = 0xFF,
+};
+
+const Destination = enum(u8) { JAPAN_OVERSEAS = 0x00, OVERSEAS = 0x01 };
+
+// TODO
+const NewLicensee = enum(u8) {};
+
+// TODO
+const OldLicensee = enum(u8) {};
+
 const CartridgeHeader = struct {
     const Self = @This();
+
+    const valid_nintendo_logo = [_]u8{
+        0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
+        0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
+        0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
+    };
 
     // 0100-0103 - Entry point
     entry_point: [0x4]u8 = undefined,
 
     // 0104-0133 - Nintendo logo
     // This area contains a bitmap image that is displayed when the Game Boy is powered on
-    // It must match the following dump, otherwise the boot ROM won’t allow the game to run
-    // CE ED 66 66 CC 0D 00 0B 03 73 00 83 00 0C 00 0D
-    // 00 08 11 1F 88 89 00 0E DC CC 6E E6 DD DD D9 99
-    // BB BB 67 63 6E 0E EC CC DD DC 99 9F BB B9 33 3E
+    // The boot ROM won’t allow the game to run if the nintendo logo is invalid
     nintendo_logo: [0x30]u8 = undefined,
 
     // 0134-0143 - Title
@@ -59,29 +95,11 @@ const CartridgeHeader = struct {
 
     // 0148 - ROM size
     // This byte indicates how much ROM is present on the cartridge.
-    // $00  32 KiB  2 (no banking)
-    // $01  64 KiB  4
-    // $02  128 KiB 8
-    // $03  256 KiB 16
-    // $04  512 KiB 32
-    // $05  1 MiB   64
-    // $06  2 MiB   128
-    // $07  4 MiB   256
-    // $08  8 MiB   512
-    // $52  1.1 MiB 72
-    // $53  1.2 MiB 80
-    // $54  1.5 MiB 96
     rom_size: u8 = undefined,
 
     // 0149 - RAM size
     // This byte indicates how much RAM is present on the cartridge, if any.
     // If the cartridge type does not include “RAM” in its name, this should be set to 0.
-    // $00  0       No RAM
-    // $01  –       Unused 12
-    // $02  8 KiB   1 bank
-    // $03  32 KiB  4 banks of 8 KiB each
-    // $04  128 KiB 16 banks of 8 KiB each
-    // $05  64 KiB 8 banks of 8 KiB each
     ram_size: u8 = undefined,
 
     // 014A - Destination code
@@ -109,14 +127,14 @@ const CartridgeHeader = struct {
     pub fn init(cartridge_buffer: []const u8) !Self {
         var header: Self = .{};
 
-        @memcpy(header.entry_point, cartridge_buffer[0x0100..0x0104]);
-        @memcpy(header.nintendo_logo, cartridge_buffer[0x0104..0x0134]);
-        @memcpy(header.title, cartridge_buffer[0x0134..0x0144]);
-        @memcpy(header.manufacturer_code, cartridge_buffer[0x013F..0x0143]);
+        @memcpy(&header.entry_point, cartridge_buffer[0x0100..0x0104]);
+        @memcpy(&header.nintendo_logo, cartridge_buffer[0x0104..0x0134]);
+        @memcpy(&header.title, cartridge_buffer[0x0134..0x0144]);
+        @memcpy(&header.manufacturer_code, cartridge_buffer[0x013F..0x0143]);
 
         header.cgb_flag = cartridge_buffer[0x0143];
 
-        @memcpy(header.new_licensee_code, cartridge_buffer[0x0144..0x0146]);
+        @memcpy(&header.new_licensee_code, cartridge_buffer[0x0144..0x0146]);
 
         header.sgb_flag = cartridge_buffer[0x0146];
         header.cartridge_type = cartridge_buffer[0x0147];
@@ -127,11 +145,18 @@ const CartridgeHeader = struct {
         header.version_number = cartridge_buffer[0x014C];
         header.checksum = cartridge_buffer[0x014D];
 
-        @memcpy(header.global_checksum, cartridge_buffer[0x014E..0x0150]);
+        @memcpy(&header.global_checksum, cartridge_buffer[0x014E..0x0150]);
+
+        try header.validate();
+
+        return header;
     }
 
-    // TODO validate header
-    pub fn validate() void {}
+    pub fn validate(self: *Self) !void {
+        if (!std.mem.eql(u8, &self.nintendo_logo, &valid_nintendo_logo)) return CartridgeErrors.InvalidNintendoLogo;
+
+        // TODO additional validation
+    }
 };
 
 const Cartridge = struct {
@@ -146,49 +171,54 @@ const Cartridge = struct {
 
     pub fn init(alloc: std.mem.Allocator, cartridge_buffer: []u8) !*Self {
         const cartridge = try alloc.create(Self);
-        const header = CartridgeHeader.init(cartridge_buffer);
+        const header = try CartridgeHeader.init(cartridge_buffer);
 
-        allocateRam(alloc, header);
-        allocateRom(alloc, header);
-
-        cartridge.*{
+        cartridge.* = .{
             .alloc = alloc,
             .header = header,
+            .rom = &[_]u8{},
+            .ram = &[_]u8{},
         };
+
+        try cartridge.allocateRam(alloc, &header);
+        try cartridge.allocateRom(alloc, &header);
 
         return cartridge;
     }
 
     pub fn deinit(self: *Self) void {
+        self.alloc.free(self.rom);
+        self.alloc.free(self.ram);
+
         self.alloc.destroy(self);
     }
 
-    fn allocateRam(self: *Self, alloc: std.mem.Allocator, header: *CartridgeHeader) void {
+    fn allocateRam(self: *Self, alloc: std.mem.Allocator, header: *const CartridgeHeader) !void {
         switch (header.ram_size) {
-            0x00 => self.ram = alloc.alloc(u8, 0),
-            0x01 => self.ram = alloc.alloc(u8, 0),
-            0x02 => self.ram = alloc.alloc(u8, 0x2000), // 8 KiB
-            0x03 => self.ram = alloc.alloc(u8, 0x4000), // 32 KiB
-            0x04 => self.ram = alloc.alloc(u8, 0x20000), // 128 KiB
-            0x05 => self.ram = alloc.alloc(u8, 0x10000), // 64 KiB
+            0x00 => self.ram = try alloc.alloc(u8, 0),
+            0x01 => self.ram = try alloc.alloc(u8, 0),
+            0x02 => self.ram = try alloc.alloc(u8, 0x2000), // 8 KiB
+            0x03 => self.ram = try alloc.alloc(u8, 0x8000), // 32 KiB
+            0x04 => self.ram = try alloc.alloc(u8, 0x20000), // 128 KiB
+            0x05 => self.ram = try alloc.alloc(u8, 0x10000), // 64 KiB
             else => unreachable,
         }
     }
 
-    fn allocateRom(self: *Self, alloc: std.mem.Allocator, header: *CartridgeHeader) void {
+    fn allocateRom(self: *Self, alloc: std.mem.Allocator, header: *const CartridgeHeader) !void {
         switch (header.rom_size) {
-            0x00 => self.rom = alloc.alloc(u8, 0x4000), // 32 KiB
-            0x01 => self.rom = alloc.alloc(u8, 0x10000), // 64 KiB
-            0x02 => self.rom = alloc.alloc(u8, 0x20000), // 128 KiB
-            0x03 => self.rom = alloc.alloc(u8, 0x40000), // 256 KiB
-            0x04 => self.rom = alloc.alloc(u8, 0x80000), // 512 KiB
-            0x05 => self.rom = alloc.alloc(u8, 0x100000), // 1 MiB
-            0x06 => self.rom = alloc.alloc(u8, 0x200000), // 2 MiB
-            0x07 => self.rom = alloc.alloc(u8, 0x400000), // 4 MiB
-            0x08 => self.rom = alloc.alloc(u8, 0x800000), // 8 MiB
-            0x52 => self.rom = alloc.alloc(u8, 0x119999), // 1.1 MiB
-            0x53 => self.rom = alloc.alloc(u8, 0x133333), // 1.2 MiB
-            0x54 => self.rom = alloc.alloc(u8, 0x180000), // 1.5 MiB
+            0x00 => self.rom = try alloc.alloc(u8, 0x4000), // 32 KiB
+            0x01 => self.rom = try alloc.alloc(u8, 0x10000), // 64 KiB
+            0x02 => self.rom = try alloc.alloc(u8, 0x20000), // 128 KiB
+            0x03 => self.rom = try alloc.alloc(u8, 0x40000), // 256 KiB
+            0x04 => self.rom = try alloc.alloc(u8, 0x80000), // 512 KiB
+            0x05 => self.rom = try alloc.alloc(u8, 0x100000), // 1 MiB
+            0x06 => self.rom = try alloc.alloc(u8, 0x200000), // 2 MiB
+            0x07 => self.rom = try alloc.alloc(u8, 0x400000), // 4 MiB
+            0x08 => self.rom = try alloc.alloc(u8, 0x800000), // 8 MiB
+            0x52 => self.rom = try alloc.alloc(u8, 0x119999), // 1.1 MiB
+            0x53 => self.rom = try alloc.alloc(u8, 0x133333), // 1.2 MiB
+            0x54 => self.rom = try alloc.alloc(u8, 0x180000), // 1.5 MiB
             else => unreachable,
         }
     }
@@ -219,8 +249,7 @@ pub fn CartridgeInterface() type {
             self.alloc.destroy(self);
         }
 
-        pub fn readCartridge(self: *Self, cartridge_buffer: []u8) void {
-            // Clear out the existing cartridge
+        pub fn readCartridge(self: *Self, cartridge_buffer: []u8) !void {
             if (self.cartridge) |cartridge| {
                 cartridge.deinit();
             }
@@ -235,8 +264,16 @@ test "Read Cartridge" {
     const cartridge_interface = try CartridgeInterface().init(gpa);
     defer cartridge_interface.deinit();
 
-    const cartridge_buffer = [0x800000]u8; // 8MB
-    _ = try std.fs.cwd().readFile("../../James Bond 007.gb", cartridge_buffer);
+    const cartridge_buffer = try gpa.alloc(u8, 0x800000); // 8MB
+    defer gpa.free(cartridge_buffer);
 
-    cartridge_interface.readCartridge(cartridge_buffer);
+    _ = try std.fs.cwd().readFile("James Bond 007.gb", cartridge_buffer);
+
+    try cartridge_interface.readCartridge(cartridge_buffer);
+
+    // Output the cartridge header in JSON
+    const writer = std.io.getStdErr().writer();
+    var json_ws = std.json.writeStream(writer, .{ .whitespace = .indent_2 });
+    defer json_ws.deinit();
+    try json_ws.write(cartridge_interface.*.cartridge.?.header);
 }
