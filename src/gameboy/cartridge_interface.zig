@@ -4,6 +4,10 @@ const CartridgeErrors = error{
     InvalidNintendoLogo,
 };
 
+const CartridgeInterfaceErrors = error{
+    NoCartridgePresent,
+};
+
 const CartridgeType = enum(u8) {
     ROM_ONLY = 0x00,
     MBC1 = 0x01,
@@ -528,6 +532,42 @@ pub fn CartridgeInterface() type {
             }
 
             self.cartridge = try Cartridge.init(self.alloc, cartridge_buffer);
+        }
+
+        pub fn readByte(self: *Self, address: u16) u8 {
+            if (self.cartridge) |cartridge| {
+                if (address <= 0x7FFF) {
+                    return cartridge.rom[address];
+                } else {
+                    return cartridge.rom[address];
+                }
+            }
+
+            return 0xFF;
+        }
+
+        pub fn getMemoryPointer(self: *Self, address: u16) *u8 {
+            if (self.cartridge) |cartridge| {
+                if (address <= 0x7FFF) {
+                    return &cartridge.rom[address];
+                } else {
+                    return &cartridge.rom[address];
+                }
+            }
+
+            return CartridgeInterfaceErrors.NoCartridgePresent;
+        }
+
+        pub fn writeByte(self: *Self, address: u16, val: u8) void {
+            if (self.cartridge) |cartridge| {
+                if (address <= 0x7FFF) {
+                    cartridge.rom[address] = val;
+                } else {
+                    cartridge.rom[address] = val;
+                }
+            }
+
+            // No-op
         }
     };
 }

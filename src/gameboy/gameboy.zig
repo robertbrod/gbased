@@ -3,7 +3,7 @@ const memory = @import("memory");
 const SoC = @import("sharp_lr35902").SoC;
 const Clock = @import("clock.zig").Clock;
 const Timer = @import("timer").Timer;
-const CartridgeInterface = @import("cartridge_interface.zig").CartridgeInterface();
+const CartridgeInterface = @import("cartridge_interface.zig").CartridgeInterface;
 
 pub fn GameBoy() type {
     return struct {
@@ -17,6 +17,7 @@ pub fn GameBoy() type {
 
         clock: *Clock(),
         timer: *Timer(),
+        cartridge_interface: *CartridgeInterface(),
         mmu: *memory.MemoryManagementUnit(),
         soc: *SoC(), // Contains CPU + PPU + APU + HRAM
         // TODO: other top level components
@@ -26,7 +27,11 @@ pub fn GameBoy() type {
 
             const clock = try Clock().init(alloc);
             const timer = try Timer().init(alloc);
-            const mmu = try memory.MemoryManagementUnit().init(alloc);
+            const cartridge_interface = try CartridgeInterface().init(alloc);
+            const mmu = try memory.MemoryManagementUnit().init(.{
+                .alloc = alloc,
+                .cartridge_interface = cartridge_interface,
+            });
             const soc = try SoC().init(.{
                 .alloc = alloc,
                 .mmu = mmu,
@@ -40,6 +45,7 @@ pub fn GameBoy() type {
 
                 .clock = clock,
                 .timer = timer,
+                .cartridge_interface = cartridge_interface,
                 .mmu = mmu,
                 .soc = soc,
             };

@@ -1,4 +1,6 @@
 const std = @import("std");
+const Gameboy = @import("gameboy");
+const options = @import("options.zig");
 
 pub const MemoryErrors = error{
     InvalidMemory,
@@ -13,15 +15,10 @@ pub fn MemoryManagementUnit() type {
 
         alloc: std.mem.Allocator,
 
-        // 0000-3FFF:   16 KiB ROM bank 00. From cartridge, usually a fixed bank
-        // 4000-7FFF:   16 KiB ROM Bank 01–NN. From cartridge, switchable bank via mapper (if any)
-        cartridge_rom: ?*[0x8000]u8 = null,
+        cartridge_interface: *Gameboy.CartridgeInterface(),
 
         // 8000-9FFF:   8 KiB Video RAM (VRAM). In CGB mode, switchable bank 0/1
         video_ram: [0x2000]u8,
-
-        // A000-BFFF:   8 KiB External RAM. From cartridge, switchable bank if any
-        external_ram: ?*[0x2000]u8 = null,
 
         // C000-CFFF:   4 KiB Work RAM (WRAM).
         // D000-DFFF:   4 KiB Work RAM (WRAM). In CGB mode, switchable bank 1–7
@@ -45,13 +42,14 @@ pub fn MemoryManagementUnit() type {
         // FFFF-FFFF:   Interrupt Enable register (IE)
         ie_register: u8,
 
-        pub fn init(alloc: std.mem.Allocator) !*Self {
+        pub fn init(opts: options.MMUptions) !*Self {
             // Allocate memory on heap for memory map
-            const new_memory_management_unit = try alloc.create(Self);
+            const new_memory_management_unit = try opts.alloc.create(Self);
 
             // Initialize values for memory map
             new_memory_management_unit.* = .{
-                .alloc = alloc,
+                .alloc = opts.alloc,
+                .cartridge_interface = opts.cartridge_interface,
                 .video_ram = [_]u8{0} ** 0x2000,
                 .work_ram = [_]u8{0} ** 0x2000,
                 .object_attribute_memory = [_]u8{0} ** 0xA0,
@@ -71,14 +69,6 @@ pub fn MemoryManagementUnit() type {
             self.high_ram = high_ram;
         }
 
-        pub fn mapCartridgeROM(self: *Self, cartridge_rom: []u8) void {
-            self.cartridge_rom = cartridge_rom;
-        }
-
-        pub fn mapExternalRAM(self: *Self, external_ram: []u8) void {
-            self.external_ram = external_ram;
-        }
-
         pub fn getMemory(self: *Self, address: u16) u8 {
             // Map address to appropriate memory location
             if (address <= 0x7FFF) {
@@ -86,9 +76,7 @@ pub fn MemoryManagementUnit() type {
                 // Start: 0000 0000 0000 0000
                 // End:   0111 1111 1111 1111
                 // Mask:  0111 1111 1111 1111
-                if (self.cartridge_rom) |cartridge_rom| {
-                    return cartridge_rom[address & 0x7FFF];
-                }
+                return self.cartridge_interface.readByte(address & 0x7FFF);
             } else if (address <= 0x9FFF) {
                 // video_ram
                 // Start: 1000 0000 0000 0000
@@ -100,9 +88,7 @@ pub fn MemoryManagementUnit() type {
                 // Start: 1010 0000 0000 0000
                 // End:   1011 1111 1111 1111
                 // Mask:  0001 1111 1111 1111
-                if (self.external_ram) |external_ram| {
-                    return external_ram[address & 0x1FFF];
-                }
+                return self.cartridge_interface.readByte(address & 0x1FFF);
             } else if (address <= 0xDFFF) {
                 // work_ram
                 // Start: 1100 0000 0000 0000
@@ -146,16 +132,14 @@ pub fn MemoryManagementUnit() type {
             return 0xFF;
         }
 
-        pub fn getMemoryPointer(self: *Self, address: u16) MemoryErrors!*u8 {
+        pub fn getMemoryPointer(self: *Self, address: u16) !*u8 {
             // Map address to appropriate memory location
             if (address <= 0x7FFF) {
                 // catridge_rom
-                // Start: 0000 0000 0000 0000
+                // Start: 0000 0000 0000 0000try
                 // End:   0111 1111 1111 1111
                 // Mask:  0111 1111 1111 1111
-                if (self.cartridge_rom) |cartridge_rom| {
-                    return &cartridge_rom[address & 0x7FFF];
-                }
+                return try self.cartridge_interface.getMemoryPointer(address & 0x7FFF);
             } else if (address <= 0x9FFF) {
                 // video_ram
                 // Start: 1000 0000 0000 0000
@@ -167,9 +151,7 @@ pub fn MemoryManagementUnit() type {
                 // Start: 1010 0000 0000 0000
                 // End:   1011 1111 1111 1111
                 // Mask:  0001 1111 1111 1111
-                if (self.external_ram) |external_ram| {
-                    return &external_ram[address & 0x1FFF];
-                }
+                return try self.cartridge_interface.getMemoryPointer(address & 0x1FFF);
             } else if (address <= 0xDFFF) {
                 // work_ram
                 // Start: 1100 0000 0000 0000
@@ -224,9 +206,7 @@ pub fn MemoryManagementUnit() type {
                 // Start: 0000 0000 0000 0000
                 // End:   0111 1111 1111 1111
                 // Mask:  0111 1111 1111 1111
-                if (self.cartridge_rom) |cartridge_rom| {
-                    cartridge_rom[address & 0x7FFF] = val;
-                }
+                self.cartridge_interface.writeByte(address & 0x7FFF, val);
             } else if (address <= 0x9FFF) {
                 // video_ram
                 // Start: 1000 0000 0000 0000
@@ -238,9 +218,7 @@ pub fn MemoryManagementUnit() type {
                 // Start: 1010 0000 0000 0000
                 // End:   1011 1111 1111 1111
                 // Mask:  0001 1111 1111 1111
-                if (self.external_ram) |external_ram| {
-                    external_ram[address & 0x1FFF] = val;
-                }
+                self.cartridge_interface.writeByte(address & 0x1FFF, val);
             } else if (address <= 0xDFFF) {
                 // work_ram
                 // Start: 1100 0000 0000 0000
