@@ -1,0 +1,121 @@
+const std = @import("std");
+
+const CartridgeErrors = error{
+    InvalidNintendoLogo,
+};
+
+pub fn CartridgeHeader() type {
+    return struct {
+        const Self = @This();
+
+        const valid_nintendo_logo = [_]u8{
+            0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
+            0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
+            0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
+        };
+
+        // 0100-0103 - Entry point
+        entry_point: [0x4]u8 = undefined,
+
+        // 0104-0133 - Nintendo logo
+        // This area contains a bitmap image that is displayed when the Game Boy is powered on
+        // The boot ROM won’t allow the game to run if the nintendo logo is invalid
+        nintendo_logo: [0x30]u8 = undefined,
+
+        // 0134-0143 - Title
+        // These bytes contain the title of the game in upper case ASCII.
+        // If the title is less than 16 characters long, the remaining bytes should be padded with $00s.
+        title: [0x10]u8 = undefined,
+
+        // 013F-0142 - Manufacturer code
+        // In older cartridges these bytes were part of the Title.
+        // In newer cartridges they contain a 4-character manufacturer code (in uppercase ASCII).
+        // The purpose of the manufacturer code is unknown.
+        manufacturer_code: [0x4]u8 = undefined,
+
+        // 0143 - CGB flag
+        // In older cartridges this byte was part of the Title.
+        // The CGB and later models interpret this byte to decide whether to enable Color mode or to fall back to monochrome compatibility mode.
+        // Typical values:
+        //     0x80: The game supports CGB enhancements, but is backwards compatible with monochrome Game Boys
+        //     0xC0: The game works on CGB only
+        // Setting bit 7 will trigger a write of this register value to KEY0 register which sets the CPU mode.
+        cgb_flag: u8 = undefined,
+
+        // 0144-0145 - New licensee code
+        // This area contains a two-character ASCII “licensee code” indicating the game’s publisher
+        // It is only meaningful if the Old licensee is exactly 0x33 otherwise, the old code must be considered.
+        new_licensee_code: [0x2]u8 = undefined,
+
+        // 0146 - SGB flag
+        // This byte specifies whether the game supports SGB functions.
+        sgb_flag: u8 = undefined,
+
+        // 0147 - Cartridge type
+        // This byte indicates what kind of hardware is present on the cartridge — most notably its mapper.
+        cartridge_type: u8 = undefined,
+
+        // 0148 - ROM size
+        // This byte indicates how much ROM is present on the cartridge.
+        rom_size: u8 = undefined,
+
+        // 0149 - RAM size
+        // This byte indicates how much RAM is present on the cartridge, if any.
+        // If the cartridge type does not include “RAM” in its name, this should be set to 0.
+        ram_size: u8 = undefined,
+
+        // 014A - Destination code
+        // This byte specifies whether this version of the game is intended to be sold in Japan or elsewhere.
+        // $00  Japan (and possibly overseas)
+        // $01  Overseas only
+        destination_code: u8 = undefined,
+
+        // 014B — Old licensee code
+        // This byte is used in older (pre-SGB) cartridges to specify the game’s publisher.
+        // However, the value $33 indicates that the New licensee codes must be considered instead.
+        old_licensee_code: u8 = undefined,
+
+        // 014C - Mask ROM version number
+        // The byte specifies the version number of the game. It is usually $00
+        version_number: u8 = undefined,
+
+        // 014D - Header checksum
+        // This byte contains an 8-bit checksum computed from the cartridge header bytes $0134–014C
+        checksum: u8 = undefined,
+
+        // 014E - O14F - Global checksum
+        global_checksum: [0x2]u8 = undefined,
+
+        pub fn init(cartridge_buffer: []const u8) !Self {
+            var header: Self = .{};
+
+            @memcpy(&header.entry_point, cartridge_buffer[0x0100..0x0104]);
+            @memcpy(&header.nintendo_logo, cartridge_buffer[0x0104..0x0134]);
+            @memcpy(&header.title, cartridge_buffer[0x0134..0x0144]);
+            @memcpy(&header.manufacturer_code, cartridge_buffer[0x013F..0x0143]);
+
+            header.cgb_flag = cartridge_buffer[0x0143];
+
+            @memcpy(&header.new_licensee_code, cartridge_buffer[0x0144..0x0146]);
+
+            header.sgb_flag = cartridge_buffer[0x0146];
+            header.cartridge_type = cartridge_buffer[0x0147];
+            header.rom_size = cartridge_buffer[0x0148];
+            header.ram_size = cartridge_buffer[0x0149];
+            header.destination_code = cartridge_buffer[0x014A];
+            header.old_licensee_code = cartridge_buffer[0x014B];
+            header.version_number = cartridge_buffer[0x014C];
+            header.checksum = cartridge_buffer[0x014D];
+
+            @memcpy(&header.global_checksum, cartridge_buffer[0x014E..0x0150]);
+
+            try header.validate();
+
+            return header;
+        }
+
+        pub fn validate(self: *Self) !void {
+            if (!std.mem.eql(u8, &self.nintendo_logo, &valid_nintendo_logo)) return CartridgeErrors.InvalidNintendoLogo;
+        }
+    };
+}
