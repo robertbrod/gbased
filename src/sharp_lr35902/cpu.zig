@@ -8,6 +8,7 @@ const IDU = @import("idu.zig").IDU;
 const DMA = @import("dma.zig").DMA;
 const RegisterFile = @import("register_file.zig").RegisterFile;
 const InstructionSet = @import("instructions.zig").InstructionSet;
+const Instruction = @import("instructions.zig").Instruction;
 
 pub fn SM83CPU() type {
     return struct {
@@ -17,22 +18,28 @@ pub fn SM83CPU() type {
         mmu: *memory.MemoryManagementUnit(),
 
         // Processing
-        tick_count: u8 = 0,
         alu: ALU(),
         idu: IDU(),
         dma: DMA(),
         register_file: *RegisterFile(),
         instruction_set: InstructionSet(),
 
+        machine_cycle: u4 = 1,
+
         pub fn init(opts: options.SoCOptions) !Self {
+            const register_file = try RegisterFile().init(opts.alloc);
+
+            // Load first instruction
+            register_file.register_ir = opts.mmu.getMemory(register_file.program_counter);
+
             return .{
                 .mmu = opts.mmu,
 
-                .alu = ALU().init(),
+                .alu = ALU().init(register_file),
                 .idu = IDU().init(),
                 .dma = DMA().init(opts),
-                .register_file = try RegisterFile().init(opts.alloc),
-                .instruction_set = try InstructionSet().init(opts.alloc),
+                .register_file = register_file,
+                .instruction_set = InstructionSet().init(),
             };
         }
 
@@ -45,66 +52,38 @@ pub fn SM83CPU() type {
             self.instruction_set.deinit();
         }
 
-        // TODO: implement action instruction timing
-        pub fn tick(self: *Self) void {
-            if (self.tick_count == 0) {
-                self.machineTick();
-            }
-
-            // A machine cycle happens every four ticks
-            self.tick_count = (self.tick_count + 1) % 4;
-        }
-
-        fn machineTick(self: *Self) void {
-            // std.debug.print("CPU Tick\n", .{});
+        pub fn machineTick(self: *Self) !void {
+            try self.process_instruction();
 
             self.dma.machineTick();
         }
 
-        pub fn process_instruction(self: *Self, opcode: u8) void {
-            for (self.instruction_set.instructions) |inst| {
-                if (inst.match(opcode)) {
-                    // Execute the instruction
-                    inst.execute(opcode, &self.register_file);
-                    break;
-                }
+        fn process_instruction(self: *Self) !void {
+            // CPU has a fetch/execute overlap
+            // Meaning: during the last step of the current instruction
+            // then the we are also fetching the next instruction
+
+            // Execute current instruction
+            // const current_instruction = try self.fetchInstruction();
+
+            const instruction_done = try self.instruction_set.execute(self);
+
+            // Current instruction done -> fetch the next instruction
+            if (instruction_done) {
+                try self.fetchNextInstruction();
             }
+
+            // Increment machine cycle
+            self.machine_cycle += 1;
         }
 
-        // // Register number map
-        // // 0 -> B
-        // // 1 -> C
-        // // 2 -> D
-        // // 3 -> E
-        // // 4 -> H
-        // // 5 -> L
-        // // 6 -> (HL) get value of memory management unit based on address in HL
-        // // 7 -> A
-        // pub fn get_value(self: *Self, reg_num: u3) RegisterFileErrors!u8 {
-        //     switch (reg_num) {
-        //         0 => return @intCast(self.register_bc >> 8), // B
-        //         1 => return @intCast(self.register_bc & 0xFF), // C
-        //         2 => return @intCast(self.register_de >> 8), // D
-        //         3 => return @intCast(self.register_de & 0xFF), // E
-        //         4 => return @intCast(self.register_hl >> 8), // H
-        //         5 => return @intCast(self.register_hl & 0xFF), // L
-        //         6 => return 0, // TODO: read memory of HL
-        //         7 => return self.accumulator, // A
-        //     }
-        // }
+        fn fetchNextInstruction(self: *Self) !void {
+            self.register_file.register_ir = self.mmu.getMemory(self.register_file.program_counter);
+            self.register_file.program_counter += 1;
 
-        // pub fn set_value(self: *Self, reg_num: u3, value: u8) void {
-        //     switch (reg_num) {
-        //         0 => self.register_bc = (self.register_bc & 0x00FF) | (@as(u16, value) << 8), // B
-        //         1 => self.register_bc = (self.register_bc & 0xFF00) | @as(u16, value), // C
-        //         2 => self.register_de = (self.register_de & 0x00FF) | (@as(u16, value) << 8), // D
-        //         3 => self.register_de = (self.register_de & 0xFF00) | @as(u16, value), // E
-        //         4 => self.register_hl = (self.register_hl & 0x00FF) | (@as(u16, value) << 8), // H
-        //         5 => self.register_hl = (self.register_hl & 0xFF00) | @as(u16, value), // L
-        //         6 => return, // TODO: write memory of HL
-        //         7 => self.accumulator = value, // A
-        //     }
-        // }
+            // Reset machine cycle count
+            self.machine_cycle = 1;
+        }
     };
 }
 

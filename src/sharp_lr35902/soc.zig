@@ -41,13 +41,13 @@ pub fn SoC() type {
             self.alloc.destroy(self);
         }
 
-        pub fn tick(self: *Self) void {
+        pub fn tick(self: *Self) !void {
             // PPU processes every tick
             self.ppu.tick();
 
             // CPU processes every machine cycle (4 clock ticks)
             if (self.tick_num == 0) {
-                self.cpu.tick();
+                try self.cpu.machineTick();
             }
 
             self.tick_num = (self.tick_num + 1) % 4;

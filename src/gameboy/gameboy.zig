@@ -85,7 +85,7 @@ pub fn GameBoy() type {
                 ticks = self.clock.getElapsedTicks();
 
                 for (0..ticks) |_| {
-                    self.tick();
+                    try self.tick();
                 }
 
                 // Yield thread to OS instead of sleeping to get a faster cycle
@@ -99,9 +99,9 @@ pub fn GameBoy() type {
             }
         }
 
-        pub fn tick(self: *Self) void {
+        pub fn tick(self: *Self) !void {
             // TODO: fill in tick notifications
-            self.soc.tick();
+            try self.soc.tick();
         }
     };
 }
