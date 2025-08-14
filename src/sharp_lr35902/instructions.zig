@@ -76,6 +76,26 @@ pub fn InstructionSet() type {
                 0x22 => LoadFromAccumulatorIndirectHLIncrement.execute(cpu),
 
                 // 16-bit load instructions
+                0x01 => LoadRegisterPair.execute(cpu),
+                0x11 => LoadRegisterPair.execute(cpu),
+                0x21 => LoadRegisterPair.execute(cpu),
+                0x31 => LoadRegisterPair.execute(cpu),
+
+                0x08 => LoadFromStackPointer.execute(cpu),
+
+                0xF9 => LoadStackPointerFromHL.execute(cpu),
+
+                0xC5 => PushStack.execute(cpu),
+                0xD5 => PushStack.execute(cpu),
+                0xE5 => PushStack.execute(cpu),
+                0xF5 => PushStack.execute(cpu),
+
+                0xC1 => PopStack.execute(cpu),
+                0xD1 => PopStack.execute(cpu),
+                0xE1 => PopStack.execute(cpu),
+                0xF1 => PopStack.execute(cpu),
+
+                0xF8 => LoadFromAdjustedStackPointer.execute(cpu),
 
                 // Misc instructions
                 0x00 => NOP.execute(cpu),
@@ -111,8 +131,8 @@ const LoadRegister = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                const r1: u3 = @intCast(cpu.register_file.register_ir >> 3 & 0b00000111); // Extract bits 3-5
-                const r2: u3 = @intCast(cpu.register_file.register_ir & 0b00000111); // Extract bits 0-2
+                const r1: u3 = @truncate(cpu.register_file.register_ir >> 3); // Extract bits 3-5
+                const r2: u3 = @truncate(cpu.register_file.register_ir); // Extract bits 0-2
 
                 cpu.register_file.set_value(r1, cpu.register_file.get_value(r2));
 
@@ -130,7 +150,6 @@ const LoadRegisterImmediate = struct {
     // Opcode - 0b00xxx110
     // LD r, n
     // Load immediate data n into r
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -139,12 +158,12 @@ const LoadRegisterImmediate = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                z = cpu.mmu.getMemory(cpu.register_file.program_counter);
                 cpu.register_file.program_counter += 1;
             },
             3 => {
-                const r: u3 = @intCast(cpu.register_file.register_ir >> 3 & 0b00000111); // Extract bits 3-5
-                cpu.register_file.set_value(r, Self.z);
+                const r: u3 = @truncate(cpu.register_file.register_ir >> 3); // Extract bits 3-5
+                cpu.register_file.set_value(r, z);
 
                 // Done with opcode
                 return true;
@@ -160,7 +179,6 @@ const LoadRegisterIndirect = struct {
     // Opcode - 0b01xxx110
     // LD r, (HL)
     // Load data from HL address into r
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -169,12 +187,12 @@ const LoadRegisterIndirect = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.register_hl);
+                z = cpu.mmu.getMemory(cpu.register_file.register_hl);
             },
             3 => {
-                const r: u3 = @intCast(cpu.register_file.register_ir >> 3 & 0b00000111); // Extract bits 3-5
+                const r: u3 = @truncate(cpu.register_file.register_ir >> 3); // Extract bits 3-5
 
-                cpu.register_file.set_value(r, Self.z);
+                cpu.register_file.set_value(r, z);
 
                 // Done with opcode
                 return true;
@@ -196,7 +214,7 @@ const LoadFromRegisterIndirect = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                const r: u3 = @intCast(cpu.register_file.register_ir & 0b00000111); // Extract bits 0-2
+                const r: u3 = @truncate(cpu.register_file.register_ir); // Extract bits 0-2
 
                 const val = cpu.register_file.get_value(r);
                 cpu.mmu.setMemory(cpu.register_file.register_hl, val);
@@ -216,7 +234,6 @@ const LoadFromImmediateIndirect = struct {
     // Opcode - 0b00110110
     // LD (HL), n
     // Load immediate data n into HL address
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -225,11 +242,11 @@ const LoadFromImmediateIndirect = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                z = cpu.mmu.getMemory(cpu.register_file.program_counter);
                 cpu.register_file.program_counter += 1;
             },
             3 => {
-                cpu.mmu.setMemory(cpu.register_file.register_hl, Self.z);
+                cpu.mmu.setMemory(cpu.register_file.register_hl, z);
             },
             4 => {
                 // Done with opcode
@@ -246,7 +263,6 @@ const LoadAccumulatorIndirectBC = struct {
     // Opcode - 0b00001010
     // LD A, (BC)
     // Load into A register, data from the address of BC
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -255,10 +271,10 @@ const LoadAccumulatorIndirectBC = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.register_bc);
+                z = cpu.mmu.getMemory(cpu.register_file.register_bc);
             },
             3 => {
-                cpu.register_file.accumulator = Self.z;
+                cpu.register_file.accumulator = z;
 
                 // Done with opcode
                 return true;
@@ -274,7 +290,6 @@ const LoadAccumulatorIndirectDE = struct {
     // Opcode - 0b00011010
     // LD A, (DE)
     // Load into A register, data from the address of DE
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -283,10 +298,10 @@ const LoadAccumulatorIndirectDE = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.register_de);
+                z = cpu.mmu.getMemory(cpu.register_file.register_de);
             },
             3 => {
-                cpu.register_file.accumulator = Self.z;
+                cpu.register_file.accumulator = z;
 
                 // Done with opcode
                 return true;
@@ -348,7 +363,6 @@ const LoadAccumulatorDirect = struct {
     // Opcode - 0b11111010
     // LD A, (nn)
     // Load to the 8-bit A register, data from the absolute address specified by the 16-bit operand nn
-    const Self = @This();
     var addr: u16 = 0;
     var z: u8 = 0;
 
@@ -359,19 +373,19 @@ const LoadAccumulatorDirect = struct {
             },
             2 => {
                 // Lowest 8 bits
-                Self.addr = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                addr = cpu.mmu.getMemory(cpu.register_file.program_counter);
                 cpu.register_file.program_counter += 1;
             },
             3 => {
                 // Highest 8 bits
-                Self.addr |= @as(u16, @intCast(cpu.mmu.getMemory(cpu.register_file.program_counter))) << 8;
+                addr |= @as(u16, @intCast(cpu.mmu.getMemory(cpu.register_file.program_counter))) << 8;
                 cpu.register_file.program_counter += 1;
             },
             4 => {
-                Self.z = cpu.mmu.getMemory(Self.addr);
+                z = cpu.mmu.getMemory(addr);
             },
             5 => {
-                cpu.register_file.accumulator = Self.z;
+                cpu.register_file.accumulator = z;
 
                 // Done with opcode
                 return true;
@@ -387,7 +401,6 @@ const LoadFromAccumulatorDirect = struct {
     // Opcode - 0b11101010
     // LD (nn), A
     // Load to the absolute address specified by the 16-bit operand nn, data from the 8-bit A register
-    const Self = @This();
     var addr: u16 = 0;
     var z: u8 = 0;
 
@@ -398,16 +411,16 @@ const LoadFromAccumulatorDirect = struct {
             },
             2 => {
                 // Lowest 8 bits
-                Self.addr = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                addr = cpu.mmu.getMemory(cpu.register_file.program_counter);
                 cpu.register_file.program_counter += 1;
             },
             3 => {
                 // Highest 8 bits
-                Self.addr |= @as(u16, @intCast(cpu.mmu.getMemory(cpu.register_file.program_counter))) << 8;
+                addr |= @as(u16, @intCast(cpu.mmu.getMemory(cpu.register_file.program_counter))) << 8;
                 cpu.register_file.program_counter += 1;
             },
             4 => {
-                cpu.mmu.setMemory(Self.addr, cpu.register_file.accumulator);
+                cpu.mmu.setMemory(addr, cpu.register_file.accumulator);
             },
             5 => {
                 // Done with opcode
@@ -426,7 +439,6 @@ const LoadAccumulatorIndirectC = struct {
     // Load to the 8-bit A register, data from the address specified by the 8-bit C register. The full
     // 16-bit absolute address is obtained by setting the most significant byte to 0xFF and the least
     // significant byte to the value of C, so the possible range is 0xFF00-0xFFFF
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -436,10 +448,10 @@ const LoadAccumulatorIndirectC = struct {
             },
             2 => {
                 const addr: u16 = 0xFF00 | cpu.register_file.register_bc;
-                Self.z = cpu.mmu.getMemory(addr);
+                z = cpu.mmu.getMemory(addr);
             },
             3 => {
-                cpu.register_file.accumulator = Self.z;
+                cpu.register_file.accumulator = z;
 
                 // Done with opcode
                 return true;
@@ -483,7 +495,6 @@ const LoadAccumulatorDirectN = struct {
     // Load to the address specified by the 8-bit immediate data n, data from the 8-bit A register. The
     // full 16-bit absolute address is obtained by setting the most significant byte to 0xFF and the
     // least significant byte to the value of n, so the possible range is 0xFF00-0xFFFF
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -492,15 +503,15 @@ const LoadAccumulatorDirectN = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                z = cpu.mmu.getMemory(cpu.register_file.program_counter);
                 cpu.register_file.program_counter += 1;
             },
             3 => {
-                const addr: u16 = 0xFF00 | @as(u16, @intCast(Self.z));
-                Self.z = cpu.mmu.getMemory(addr);
+                const addr: u16 = 0xFF00 | @as(u16, @intCast(z));
+                z = cpu.mmu.getMemory(addr);
             },
             4 => {
-                cpu.register_file.accumulator = Self.z;
+                cpu.register_file.accumulator = z;
 
                 // Done with opcode
                 return true;
@@ -518,7 +529,6 @@ const LoadFromAccumulatorDirectN = struct {
     // Load to the 8-bit A register, data from the address specified by the 8-bit immediate data n. The
     // full 16-bit absolute address is obtained by setting the most significant byte to 0xFF and the
     // least significant byte to the value of n, so the possible range is 0xFF00-0xFFFF
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -527,11 +537,11 @@ const LoadFromAccumulatorDirectN = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                z = cpu.mmu.getMemory(cpu.register_file.program_counter);
                 cpu.register_file.program_counter += 1;
             },
             3 => {
-                const addr: u16 = 0xFF00 | @as(u16, @intCast(Self.z));
+                const addr: u16 = 0xFF00 | @as(u16, @intCast(z));
                 cpu.mmu.setMemory(addr, cpu.register_file.accumulator);
             },
             4 => {
@@ -550,7 +560,6 @@ const LoadAccumulatorIndirectHLDecrement = struct {
     // LD A, (HL-)
     // Load to the 8-bit A register, data from the absolute address specified by the 16-bit register HL.
     // The value of HL is decremented after the memory read
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -559,11 +568,11 @@ const LoadAccumulatorIndirectHLDecrement = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.register_hl);
+                z = cpu.mmu.getMemory(cpu.register_file.register_hl);
                 cpu.register_file.register_hl -= 1;
             },
             3 => {
-                cpu.register_file.accumulator = Self.z;
+                cpu.register_file.accumulator = z;
 
                 // Done with opcode
                 return true;
@@ -580,7 +589,6 @@ const LoadFromAccumulatorIndirectHLDecrement = struct {
     // LD (HL-), A
     // Load to the absolute address specified by the 16-bit register HL, data from the 8-bit A register.
     // The value of HL is decremented after the memory write
-    const Self = @This();
 
     pub fn execute(cpu: *CPU()) bool {
         switch (cpu.machine_cycle) {
@@ -607,7 +615,6 @@ const LoadAccumulatorIndirectHLIncrement = struct {
     // LD A, (HL+)
     // Load to the 8-bit A register, data from the absolute address specified by the 16-bit register HL.
     // The value of HL is incremented after the memory read
-    const Self = @This();
     var z: u8 = 0;
 
     pub fn execute(cpu: *CPU()) bool {
@@ -616,11 +623,11 @@ const LoadAccumulatorIndirectHLIncrement = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
-                Self.z = cpu.mmu.getMemory(cpu.register_file.register_hl);
+                z = cpu.mmu.getMemory(cpu.register_file.register_hl);
                 cpu.register_file.register_hl += 1;
             },
             3 => {
-                cpu.register_file.accumulator = Self.z;
+                cpu.register_file.accumulator = z;
 
                 // Done with opcode
                 return true;
@@ -637,7 +644,6 @@ const LoadFromAccumulatorIndirectHLIncrement = struct {
     // LD (HL+), A
     // Load to the absolute address specified by the 16-bit register HL, data from the 8-bit A register.
     // The value of HL is incremented after the memory write
-    const Self = @This();
 
     pub fn execute(cpu: *CPU()) bool {
         switch (cpu.machine_cycle) {
@@ -649,6 +655,264 @@ const LoadFromAccumulatorIndirectHLIncrement = struct {
                 cpu.register_file.register_hl += 1;
             },
             3 => {
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+// 16-bit load instructions
+const LoadRegisterPair = struct {
+    // Opcode - 0b00xx0001
+    // LD rr, nn
+    // Load to the 16-bit register rr, the immediate 16-bit data nn
+    var z: u16 = 0;
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                // Lowest 8 bits
+                z = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+            },
+            3 => {
+                // Highest 8 bits
+                z |= @as(u16, @intCast(cpu.mmu.getMemory(cpu.register_file.program_counter))) << 8;
+                cpu.register_file.program_counter += 1;
+            },
+            4 => {
+                const r: u2 = @truncate(cpu.register_file.register_ir >> 4); // Extract bits 4-5
+                switch (r) {
+                    // BC
+                    0 => cpu.register_file.register_bc = z,
+                    //DE
+                    1 => cpu.register_file.register_de = z,
+                    // HL
+                    2 => cpu.register_file.register_hl = z,
+                    // SP
+                    3 => cpu.register_file.stack_pointer = z,
+                }
+
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const LoadFromStackPointer = struct {
+    // Opcode - 0b00001000
+    // LD (nn), SP
+    // Load to the absolute address specified by the 16-bit operand nn, data from the 16-bit SP register
+    var addr: u16 = 0;
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                // Lowest 8 bits
+                addr = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+            },
+            3 => {
+                // Highest 8 bits
+                addr |= @as(u16, @intCast(cpu.mmu.getMemory(cpu.register_file.program_counter))) << 8;
+                cpu.register_file.program_counter += 1;
+            },
+            4 => {
+                const val: u8 = @truncate(cpu.register_file.stack_pointer);
+                cpu.mmu.setMemory(addr, val);
+                addr += 1;
+            },
+            5 => {
+                const val: u8 = @truncate(cpu.register_file.stack_pointer >> 8);
+                cpu.mmu.setMemory(addr, val);
+            },
+            6 => {
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const LoadStackPointerFromHL = struct {
+    // Opcode - 0b11111001
+    // LD SP, HL
+    // Load to the 16-bit SP register, data from the 16-bit HL register
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                cpu.register_file.stack_pointer = cpu.register_file.register_hl;
+            },
+            3 => {
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const PushStack = struct {
+    // Opcode - 0b11xx0101
+    // PUSH rr
+    // Push to the stack memory, data from the 16-bit register rr
+    var addr: u16 = 0;
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                cpu.register_file.stack_pointer -= 1;
+            },
+            3 => {
+                const r: u2 = @truncate(cpu.register_file.register_ir >> 4); // Extract bits 4-5
+                const val: u8 = switch (r) {
+                    // BC
+                    0 => @truncate(cpu.register_file.register_bc >> 8),
+                    //DE
+                    1 => @truncate(cpu.register_file.register_de >> 8),
+                    // HL
+                    2 => @truncate(cpu.register_file.register_hl >> 8),
+                    // SP
+                    3 => @truncate(cpu.register_file.stack_pointer >> 8),
+                };
+
+                cpu.mmu.setMemory(cpu.register_file.stack_pointer, val);
+                cpu.register_file.stack_pointer -= 1;
+            },
+            4 => {
+                const r: u2 = @truncate(cpu.register_file.register_ir >> 4); // Extract bits 4-5
+                const val: u8 = switch (r) {
+                    // BC
+                    0 => @truncate(cpu.register_file.register_bc),
+                    //DE
+                    1 => @truncate(cpu.register_file.register_de),
+                    // HL
+                    2 => @truncate(cpu.register_file.register_hl),
+                    // SP
+                    3 => @truncate(cpu.register_file.stack_pointer),
+                };
+
+                cpu.mmu.setMemory(cpu.register_file.stack_pointer, val);
+            },
+            5 => {
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const PopStack = struct {
+    // Opcode - 0b11xx0001
+    // POP rr
+    // Pops to the 16-bit register rr, data from the stack memory
+    var z: u16 = 0;
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                // Lowest 8 bits
+                z = cpu.mmu.getMemory(cpu.register_file.stack_pointer);
+                cpu.register_file.stack_pointer += 1;
+            },
+            3 => {
+                // Highest 8 bits
+                z |= @as(u16, @intCast(cpu.mmu.getMemory(cpu.register_file.stack_pointer))) << 8;
+                cpu.register_file.stack_pointer += 1;
+            },
+            4 => {
+                const r: u2 = @truncate(cpu.register_file.register_ir >> 4); // Extract bits 4-5
+                switch (r) {
+                    // BC
+                    0 => cpu.register_file.register_bc = z,
+                    //DE
+                    1 => cpu.register_file.register_de = z,
+                    // HL
+                    2 => cpu.register_file.register_hl = z,
+                    // SP
+                    3 => cpu.register_file.stack_pointer = z,
+                }
+
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const LoadFromAdjustedStackPointer = struct {
+    // Opcode - 0b11111000
+    // LD HL, SP+e
+    // Load to the HL register, 16-bit data calculated by adding the signed 8-bit operand e to the 16-
+    // bit value of the SP register
+    var z: u8 = 0;
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                // Read as unsigned int
+                z = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+            },
+            3 => {
+                const lsb: u8 = @truncate(cpu.register_file.stack_pointer);
+                const val = @addWithOverflow(lsb, z);
+
+                cpu.register_file.set_value(5, val[0]); // L register
+
+                // Calculate carry bits
+                const half_carry = @addWithOverflow(@as(u4, @truncate(lsb)), @as(u4, @truncate(z)))[1];
+                const full_carry = val[1];
+
+                cpu.register_file.flags = (cpu.register_file.flags & 0b11000000) | (@as(u8, @intCast(half_carry)) << 5) | (@as(u8, @intCast(full_carry)) << 4);
+            },
+            4 => {
+                const z_sign = (z & 0b10000000) == 0b10000000;
+                const adj: u8 = if (z_sign) 0xFF else 0x00;
+                const msb: u8 = @truncate(cpu.register_file.stack_pointer >> 8);
+                const full_carry: u1 = @truncate(cpu.register_file.flags >> 4);
+
+                // Zig discards overflow by default which is the desired behavior here
+                const val: u8 = msb + adj + full_carry;
+                cpu.register_file.set_value(4, val); // H register
+
                 // Done with opcode
                 return true;
             },
