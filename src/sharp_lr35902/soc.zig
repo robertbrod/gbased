@@ -47,7 +47,7 @@ pub fn SoC() type {
 
             // CPU processes every machine cycle (4 clock ticks)
             if (self.tick_num == 0) {
-                try self.cpu.machineTick();
+                try self.cpu.machine_tick();
             }
 
             self.tick_num = (self.tick_num + 1) % 4;

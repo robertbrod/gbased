@@ -52,10 +52,10 @@ pub fn SM83CPU() type {
             self.instruction_set.deinit();
         }
 
-        pub fn machineTick(self: *Self) !void {
+        pub fn machine_tick(self: *Self) !void {
             try self.process_instruction();
 
-            self.dma.machineTick();
+            self.dma.machine_tick();
         }
 
         fn process_instruction(self: *Self) !void {

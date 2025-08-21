@@ -1,5 +1,12 @@
 const std = @import("std");
 
+pub const RegisterFlag = enum {
+    Zero,
+    Subtract,
+    HalfCarry,
+    Carry,
+};
+
 pub fn RegisterFile() type {
     return struct {
         const Self = @This();
@@ -71,6 +78,24 @@ pub fn RegisterFile() type {
                 5 => self.register_hl = (self.register_hl & 0xFF00) | @as(u16, value), // L
                 6 => return, // This should never happen
                 7 => self.accumulator = value, // A
+            }
+        }
+
+        pub fn get_flag(self: *Self, flag: RegisterFlag) u1 {
+            switch (flag) {
+                RegisterFlag.Zero => return @truncate(self.flags >> 7),
+                RegisterFlag.Subtract => return @truncate(self.flags >> 6),
+                RegisterFlag.HalfCarry => return @truncate(self.flags >> 5),
+                RegisterFlag.Carry => return @truncate(self.flags >> 4),
+            }
+        }
+
+        pub fn set_flag(self: *Self, flag: RegisterFlag, val: u1) void {
+            switch (flag) {
+                RegisterFlag.Zero => self.flags = (self.flags & 0x7F) | @as(u8, @intCast(val)) << 7,
+                RegisterFlag.Subtract => self.flags = (self.flags & 0xBF) | @as(u8, @intCast(val)) << 6,
+                RegisterFlag.HalfCarry => self.flags = (self.flags & 0xDF) | @as(u8, @intCast(val)) << 5,
+                RegisterFlag.Carry => self.flags = (self.flags & 0xEF) | @as(u8, @intCast(val)) << 4,
             }
         }
     };

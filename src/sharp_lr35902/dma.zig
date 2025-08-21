@@ -28,7 +28,7 @@ pub fn DMA() type {
 
         pub fn deinit(_: *Self) void {}
 
-        pub fn machineTick(self: *Self) void {
+        pub fn machine_tick(self: *Self) void {
             // Compare last start address against current start address
             // (Re)start transfer if it changed
             if (self.dma_start_address != self.mmu.getMemory(dma_transfer_register)) {
