@@ -163,6 +163,21 @@ pub fn InstructionSet() type {
                 0x27 => DecimalAdjustAccumulator.execute(cpu),
                 0x2F => ComplementAccumulator.execute(cpu),
 
+                // 16-bit arithmetic instructions
+                0x03 => IncrementRegisterPair.execute(cpu),
+                0x13 => IncrementRegisterPair.execute(cpu),
+                0x23 => IncrementRegisterPair.execute(cpu),
+                0x33 => IncrementRegisterPair.execute(cpu),
+                0x0B => DecrementRegisterPair.execute(cpu),
+                0x1B => DecrementRegisterPair.execute(cpu),
+                0x2B => DecrementRegisterPair.execute(cpu),
+                0x3B => DecrementRegisterPair.execute(cpu),
+                0x09 => AddRegisterPairIndirectHL.execute(cpu),
+                0x19 => AddRegisterPairIndirectHL.execute(cpu),
+                0x29 => AddRegisterPairIndirectHL.execute(cpu),
+                0x39 => AddRegisterPairIndirectHL.execute(cpu),
+                0xE8 => AddToStackPointer.execute(cpu),
+
                 // Misc instructions
                 0x00 => NOP.execute(cpu),
 
@@ -2297,9 +2312,227 @@ const ComplementAccumulator = struct {
     }
 };
 
+// 16-bit arithmetic instructions
+const IncrementRegisterPair = struct {
+    // Opcode - 0b00xx0011
+    // INC rr
+    // Increments data in the 16-bit register rr
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                const r: u2 = @truncate(cpu.register_file.register_ir >> 5); // Extract bits 5-6
+
+                // Increment register
+                switch (r) {
+                    // BC
+                    0 => cpu.register_file.register_bc += 1,
+                    //DE
+                    1 => cpu.register_file.register_de += 1,
+                    // HL
+                    2 => cpu.register_file.register_hl += 1,
+                    // SP
+                    3 => cpu.register_file.stack_pointer += 1,
+                }
+            },
+            3 => {
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const DecrementRegisterPair = struct {
+    // Opcode - 0b00xx1011
+    // DEC rr
+    // Decrements data in the 16-bit register rr
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                const r: u2 = @truncate(cpu.register_file.register_ir >> 5); // Extract bits 5-6
+
+                // Increment register
+                switch (r) {
+                    // BC
+                    0 => cpu.register_file.register_bc -= 1,
+                    //DE
+                    1 => cpu.register_file.register_de -= 1,
+                    // HL
+                    2 => cpu.register_file.register_hl -= 1,
+                    // SP
+                    3 => cpu.register_file.stack_pointer -= 1,
+                }
+            },
+            3 => {
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const AddRegisterPairIndirectHL = struct {
+    // Opcode - 0b00xx1001
+    // ADD HL, rr
+    // Adds to the 16-bit HL register pair, the 16-bit register rr, and stores the result back into the HL
+    // register pair
+    var r: u2 = 0;
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                r = @truncate(cpu.register_file.register_ir >> 5); // Extract bits 5-6
+
+                // Get inputs
+                const l: u8 = cpu.register_file.get_value(5); // L register
+                const rl: u8 = switch (r) {
+                    // BC
+                    0 => @truncate(cpu.register_file.register_bc & 0xFF),
+                    //DE
+                    1 => @truncate(cpu.register_file.register_de & 0xFF),
+                    // HL
+                    2 => @truncate(cpu.register_file.register_hl & 0xFF),
+                    // SP
+                    3 => @truncate(cpu.register_file.stack_pointer & 0xFF),
+                };
+
+                // Add
+                const half_carry = @addWithOverflow(@as(u4, @truncate(l)), @as(u4, @truncate(rl)))[1];
+                const full_val = @addWithOverflow(l, rl);
+                const full_carry = full_val[1];
+
+                // Set output
+                cpu.register_file.set_value(5, full_val[0]); // L register
+
+                // Set flags
+                cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
+                cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
+                cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+            },
+            3 => {
+                // Get inputs
+                const h: u8 = cpu.register_file.get_value(4); // H register
+                const rh: u8 = switch (r) {
+                    // BC
+                    0 => @truncate((cpu.register_file.register_bc >> 8) & 0xFF),
+                    //DE
+                    1 => @truncate((cpu.register_file.register_de >> 8) & 0xFF),
+                    // HL
+                    2 => @truncate((cpu.register_file.register_hl >> 8) & 0xFF),
+                    // SP
+                    3 => @truncate((cpu.register_file.stack_pointer >> 8) & 0xFF),
+                };
+                const c = cpu.register_file.get_flag(RegisterFlag.Carry);
+
+                // Add
+                var half_val = @addWithOverflow(@as(u4, @truncate(h)), @as(u4, @truncate(rh)));
+                var half_carry = half_val[1];
+                var full_val = @addWithOverflow(r, rh);
+                var full_carry = full_val[1];
+
+                half_val = @addWithOverflow(half_val[0], c);
+                half_carry = half_carry | half_val[1];
+                full_val = @addWithOverflow(full_val[0], c);
+                full_carry = full_carry | full_val[1];
+
+                // Set output
+                cpu.register_file.set_value(4, full_val[0]); // H register
+
+                // Set flags
+                cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
+                cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
+                cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+            },
+            4 => {
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const AddToStackPointer = struct {
+    // Opcode - 0b11101000
+    // ADD SP, e
+    // Loads to the 16-bit SP register, 16-bit data calculated by adding the signed 8-bit operand e to
+    //the 16-bit value of the SP register
+    var e: u8 = 0;
+    var z: u8 = 0;
+    var w: u8 = 0;
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                e = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+            },
+            3 => {
+                const lsb: u8 = @truncate(cpu.register_file.stack_pointer);
+                const val = @addWithOverflow(lsb, e);
+
+                // Calculate carry bits
+                const half_carry = @addWithOverflow(@as(u4, @truncate(lsb)), @as(u4, @truncate(e)))[1];
+                const full_carry = val[1];
+
+                // Set result
+                z = val[0];
+
+                // Set flags
+                cpu.register_file.set_flag(RegisterFlag.Zero, 0);
+                cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
+                cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
+                cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+            },
+            4 => {
+                const z_sign = (e & 0b10000000) == 0b10000000;
+                const adj: u8 = if (z_sign) 0xFF else 0x00; // signed int adjustment
+                const msb: u8 = @truncate(cpu.register_file.stack_pointer >> 8);
+                const full_carry: u1 = cpu.register_file.get_flag(RegisterFlag.Carry);
+
+                // Zig discards overflow by default which is the desired behavior here
+                w = msb + adj + full_carry;
+            },
+            5 => {
+                // Set result
+                cpu.register_file.stack_pointer = (@as(u16, @intCast(w)) << 8) + @as(u16, @intCast(z));
+
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
 // Misc Instructions
 const NOP = struct {
     // Opcode - 0b00000000
+    // NOP
     // No operation
 
     pub fn execute(cpu: *CPU()) bool {
