@@ -983,13 +983,15 @@ const LoadFromAdjustedStackPointer = struct {
                 const half_carry = @addWithOverflow(@as(u4, @truncate(lsb)), @as(u4, @truncate(z)))[1];
                 const full_carry = val[1];
 
-                cpu.register_file.flags = (cpu.register_file.flags & 0b11000000) | (@as(u8, @intCast(half_carry)) << 5) | (@as(u8, @intCast(full_carry)) << 4);
+                // Set flags
+                cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
+                cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
             },
             4 => {
                 const z_sign = (z & 0b10000000) == 0b10000000;
-                const adj: u8 = if (z_sign) 0xFF else 0x00;
+                const adj: u8 = if (z_sign) 0xFF else 0x00; // signed int adjustment
                 const msb: u8 = @truncate(cpu.register_file.stack_pointer >> 8);
-                const full_carry: u1 = @truncate(cpu.register_file.flags >> 4);
+                const full_carry: u1 = cpu.register_file.get_flag(RegisterFlag.Carry);
 
                 // Zig discards overflow by default which is the desired behavior here
                 const val: u8 = msb + adj + full_carry;
