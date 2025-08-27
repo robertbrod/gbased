@@ -26,6 +26,10 @@ pub fn SM83CPU() type {
 
         machine_cycle: u4 = 1,
 
+        // Interrupt master enabled
+        ime: bool = false,
+        ime_next: bool = false,
+
         pub fn init(opts: options.SoCOptions) !Self {
             const register_file = try RegisterFile().init(opts.alloc);
 
@@ -53,9 +57,18 @@ pub fn SM83CPU() type {
         }
 
         pub fn machine_tick(self: *Self) !void {
+            // Instruction 'enable interrupts' sets a flag which sets the IME value on the next machine cycle
+            // Process that flag here
+            if (self.ime_next) {
+                self.ime = true;
+                self.ime_next = false;
+            }
+
             try self.process_instruction();
 
             self.dma.machine_tick();
+
+            // TODO: interrupt handling
         }
 
         fn process_instruction(self: *Self) !void {

@@ -179,6 +179,8 @@ pub fn InstructionSet() type {
                 0xE8 => AddToStackPointer.execute(cpu),
 
                 // Misc instructions
+                0xF3 => DisableInterrupts.execute(cpu),
+                0xFB => EnableInterrupts.execute(cpu),
                 0x00 => NOP.execute(cpu),
 
                 else => return CPUErrors.UnknownInstructionError,
@@ -2532,6 +2534,62 @@ const AddToStackPointer = struct {
 };
 
 // Misc Instructions
+
+//HALT: Halt system clock
+// TODO
+
+//STOP: Stop system and main clocks
+// TODO
+
+const DisableInterrupts = struct {
+    // Opcode - 0b11110011
+    // DI
+    // Disables interrupt handling by setting IME=0 and cancelling any scheduled effects of the EI
+    // instruction if any
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                // Set IME to false
+                cpu.ime = false;
+
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const EnableInterrupts = struct {
+    // Opcode - 0b11111011
+    // EI
+    // Schedules interrupt handling to be enabled after the next machine cycle
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                // Schedule IME to be set to true after next machine cycle
+                cpu.ime_next = true;
+
+                // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
 const NOP = struct {
     // Opcode - 0b00000000
     // NOP
