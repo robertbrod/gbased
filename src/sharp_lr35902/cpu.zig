@@ -26,9 +26,13 @@ pub fn SM83CPU() type {
 
         machine_cycle: u4 = 1,
 
-        // Interrupt master enabled
-        ime: bool = false,
+        // Interrupt handling
+        ime: bool = false, // Interrupt master enable
         ime_next: bool = false,
+        interrupt_enable: *u8,
+        interrupt_flag: *u8,
+        // Flag to indicate to the instruction set that it should execute the ISR
+        handling_interrupt: bool = false,
 
         pub fn init(opts: options.SoCOptions) !Self {
             const register_file = try RegisterFile().init(opts.alloc);
@@ -44,6 +48,9 @@ pub fn SM83CPU() type {
                 .dma = DMA().init(opts),
                 .register_file = register_file,
                 .instruction_set = InstructionSet().init(),
+
+                .interrupt_enable = try opts.mmu.getMemoryPointer(0xFFFF),
+                .interrupt_flag = try opts.mmu.getMemoryPointer(0xFF0F),
             };
         }
 
@@ -67,8 +74,6 @@ pub fn SM83CPU() type {
             try self.process_instruction();
 
             self.dma.machine_tick();
-
-            // TODO: interrupt handling
         }
 
         fn process_instruction(self: *Self) !void {
@@ -83,19 +88,22 @@ pub fn SM83CPU() type {
 
             // Current instruction done -> fetch the next instruction
             if (instruction_done) {
-                try self.fetchNextInstruction();
+                // Reset machine cycle count
+                self.machine_cycle = 1;
+
+                // Check for interrupts
+                const interrupts: u5 = @truncate(self.interrupt_enable.* & self.interrupt_flag.*);
+                if (self.ime and interrupts > 0) {
+                    // Clear out IME while handling interrupt
+                    self.ime = false;
+
+                    // Set flag to handle the interrupt
+                    self.handling_interrupt = true;
+                }
             }
 
             // Increment machine cycle
             self.machine_cycle += 1;
-        }
-
-        fn fetchNextInstruction(self: *Self) !void {
-            self.register_file.register_ir = self.mmu.getMemory(self.register_file.program_counter);
-            self.register_file.program_counter += 1;
-
-            // Reset machine cycle count
-            self.machine_cycle = 1;
         }
     };
 }

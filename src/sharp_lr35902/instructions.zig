@@ -22,6 +22,10 @@ pub fn InstructionSet() type {
         pub fn deinit(_: *Self) void {}
 
         pub fn execute(_: *Self, cpu: *CPU()) CPUErrors!bool {
+            if (cpu.handling_interrupt) {
+                return InterruptsServiceRoutine.execute(cpu);
+            }
+
             // Map opcode to the instruction
             // https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
             return switch (cpu.register_file.register_ir) {
@@ -219,6 +223,10 @@ const LoadRegister = struct {
 
                 cpu.register_file.set_value(r1, cpu.register_file.get_value(r2));
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -247,6 +255,10 @@ const LoadRegisterImmediate = struct {
             3 => {
                 const r: u3 = @truncate(cpu.register_file.register_ir >> 3); // Extract bits 3-5
                 cpu.register_file.set_value(r, z);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -277,6 +289,10 @@ const LoadRegisterIndirect = struct {
 
                 cpu.register_file.set_value(r, z);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -303,6 +319,14 @@ const LoadFromRegisterIndirect = struct {
                 cpu.mmu.setMemory(cpu.register_file.register_hl, val);
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -332,6 +356,10 @@ const LoadFromImmediateIndirect = struct {
                 cpu.mmu.setMemory(cpu.register_file.register_hl, z);
             },
             4 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -358,6 +386,10 @@ const LoadAccumulatorIndirectBC = struct {
             },
             3 => {
                 cpu.register_file.accumulator = z;
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -386,6 +418,10 @@ const LoadAccumulatorIndirectDE = struct {
             3 => {
                 cpu.register_file.accumulator = z;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -409,6 +445,10 @@ const LoadFromAccumulatorIndirectBC = struct {
                 cpu.mmu.setMemory(cpu.register_file.register_bc, cpu.register_file.accumulator);
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -432,6 +472,10 @@ const LoadFromAccumulatorIndirectDE = struct {
                 cpu.mmu.setMemory(cpu.register_file.register_de, cpu.register_file.accumulator);
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -470,6 +514,10 @@ const LoadAccumulatorDirect = struct {
             5 => {
                 cpu.register_file.accumulator = z;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -506,6 +554,10 @@ const LoadFromAccumulatorDirect = struct {
                 cpu.mmu.setMemory(addr, cpu.register_file.accumulator);
             },
             5 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -536,6 +588,10 @@ const LoadAccumulatorIndirectC = struct {
             3 => {
                 cpu.register_file.accumulator = z;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -562,6 +618,10 @@ const LoadFromAccumulatorIndirectC = struct {
                 cpu.mmu.setMemory(addr, cpu.register_file.accumulator);
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -596,6 +656,10 @@ const LoadAccumulatorDirectN = struct {
             4 => {
                 cpu.register_file.accumulator = z;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -628,6 +692,10 @@ const LoadFromAccumulatorDirectN = struct {
                 cpu.mmu.setMemory(addr, cpu.register_file.accumulator);
             },
             4 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -657,6 +725,10 @@ const LoadAccumulatorIndirectHLDecrement = struct {
             3 => {
                 cpu.register_file.accumulator = z;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -683,6 +755,10 @@ const LoadFromAccumulatorIndirectHLDecrement = struct {
                 cpu.register_file.register_hl -= 1;
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -712,6 +788,10 @@ const LoadAccumulatorIndirectHLIncrement = struct {
             3 => {
                 cpu.register_file.accumulator = z;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -738,6 +818,10 @@ const LoadFromAccumulatorIndirectHLIncrement = struct {
                 cpu.register_file.register_hl += 1;
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -783,6 +867,10 @@ const LoadRegisterPair = struct {
                     3 => cpu.register_file.stack_pointer = z,
                 }
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -824,6 +912,10 @@ const LoadFromStackPointer = struct {
                 cpu.mmu.setMemory(addr, val);
             },
             6 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -848,6 +940,10 @@ const LoadStackPointerFromHL = struct {
                 cpu.register_file.stack_pointer = cpu.register_file.register_hl;
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -904,6 +1000,10 @@ const PushStack = struct {
                 cpu.mmu.setMemory(cpu.register_file.stack_pointer, val);
             },
             5 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -947,6 +1047,10 @@ const PopStack = struct {
                     // SP
                     3 => cpu.register_file.stack_pointer = z,
                 }
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -999,6 +1103,10 @@ const LoadFromAdjustedStackPointer = struct {
                 const val: u8 = msb + adj + full_carry;
                 cpu.register_file.set_value(4, val); // H register
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1037,6 +1145,10 @@ const AddRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1081,6 +1193,10 @@ const AddIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1123,6 +1239,10 @@ const AddImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1169,6 +1289,10 @@ const AddWithCarry = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1219,6 +1343,10 @@ const AddWithCarryIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1271,6 +1399,10 @@ const AddWithCarryImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1309,6 +1441,10 @@ const SubRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 1);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1353,6 +1489,10 @@ const SubIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1396,6 +1536,10 @@ const SubImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 1);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1442,6 +1586,10 @@ const SubWithCarry = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 1);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1492,6 +1640,10 @@ const SubWithCarryIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 1);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1544,6 +1696,10 @@ const SubWithCarryImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1579,6 +1735,10 @@ const CompareRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 1);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1621,6 +1781,10 @@ const CompareIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1662,6 +1826,10 @@ const CompareImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1698,6 +1866,10 @@ const IncrementRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1739,6 +1911,10 @@ const IncrementIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1775,6 +1951,10 @@ const DecrementRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 1);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1816,6 +1996,10 @@ const DecrementIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, half_carry);
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1852,6 +2036,10 @@ const AndRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 1);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1893,6 +2081,10 @@ const AndRegisterIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 1);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -1936,6 +2128,10 @@ const AndRegisterImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 1);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -1972,6 +2168,10 @@ const OrRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -2013,6 +2213,10 @@ const OrRegisterIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -2056,6 +2260,10 @@ const OrRegisterImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2092,6 +2300,10 @@ const XorRegister = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -2133,6 +2345,10 @@ const XorRegisterIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -2176,6 +2392,10 @@ const XorRegisterImmediate = struct {
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
                 cpu.register_file.set_flag(RegisterFlag.Carry, 0);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2203,6 +2423,10 @@ const ComplementCarryFlag = struct {
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2228,6 +2452,10 @@ const SetCarryFlag = struct {
                 // Clear N and H
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 0);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 0);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -2279,6 +2507,10 @@ const DecimalAdjustAccumulator = struct {
                     cpu.register_file.set_value(7, accumulator - offset);
                 }
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2305,6 +2537,10 @@ const ComplementAccumulator = struct {
                 // Set N and H
                 cpu.register_file.set_flag(RegisterFlag.Subtract, 1);
                 cpu.register_file.set_flag(RegisterFlag.HalfCarry, 1);
+
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
 
                 // Done with opcode
                 return true;
@@ -2343,6 +2579,10 @@ const IncrementRegisterPair = struct {
                 }
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2379,6 +2619,10 @@ const DecrementRegisterPair = struct {
                 }
             },
             3 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2465,6 +2709,10 @@ const AddRegisterPairIndirectHL = struct {
                 cpu.register_file.set_flag(RegisterFlag.Carry, full_carry);
             },
             4 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2523,6 +2771,10 @@ const AddToStackPointer = struct {
                 // Set result
                 cpu.register_file.stack_pointer = (@as(u16, @intCast(w)) << 8) + @as(u16, @intCast(z));
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2556,6 +2808,10 @@ const DisableInterrupts = struct {
                 // Set IME to false
                 cpu.ime = false;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2580,6 +2836,10 @@ const EnableInterrupts = struct {
                 // Schedule IME to be set to true after next machine cycle
                 cpu.ime_next = true;
 
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
                 return true;
             },
@@ -2601,7 +2861,76 @@ const NOP = struct {
                 // This is just the fetch cycle which is done at the CPU level
             },
             2 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
                 // Done with opcode
+                return true;
+            },
+            else => {},
+        }
+
+        return false;
+    }
+};
+
+const InterruptsServiceRoutine = struct {
+    // Used to save the current state and jump to the interrupt location
+
+    pub fn execute(cpu: *CPU()) bool {
+        switch (cpu.machine_cycle) {
+            1 => {
+                // This is just the fetch cycle which is done at the CPU level
+            },
+            2 => {
+                cpu.register_file.program_counter -= 1;
+            },
+            3 => {
+                cpu.register_file.stack_pointer -= 1;
+            },
+            4 => {
+                // Push highest 8-bits of PC onto stack
+                const val: u8 = @truncate(cpu.register_file.program_counter >> 8);
+                cpu.mmu.setMemory(cpu.register_file.stack_pointer, val);
+                cpu.register_file.stack_pointer -= 1;
+            },
+            5 => {
+                // Push lowest 8-bits of PC onto stack
+                const val: u8 = @truncate(cpu.register_file.program_counter);
+                cpu.mmu.setMemory(cpu.register_file.stack_pointer, val);
+
+                // Set PC to the location of the interrupt service routine
+                // And reset interrupt flag
+                const interrupts: u5 = @truncate(cpu.interrupt_enable.* & cpu.interrupt_flag.*);
+                if (interrupts & 0b1 == 0b1) {
+                    // VBlank
+                    cpu.register_file.program_counter = 0x40;
+                    cpu.interrupt_flag.* &= 0b11111110;
+                } else if (interrupts & 0b10 == 0b10) {
+                    // LCD
+                    cpu.register_file.program_counter = 0x48;
+                    cpu.interrupt_flag.* &= 0b11111101;
+                } else if (interrupts & 0b100 == 0b100) {
+                    // Timer
+                    cpu.register_file.program_counter = 0x50;
+                    cpu.interrupt_flag.* &= 0b11111011;
+                } else if (interrupts & 0b1000 == 0b1000) {
+                    // Serial
+                    cpu.register_file.program_counter = 0x58;
+                    cpu.interrupt_flag.* &= 0b11110111;
+                } else if (interrupts & 0b10000 == 0b10000) {
+                    // Joypad
+                    cpu.register_file.program_counter = 0x60;
+                    cpu.interrupt_flag.* &= 0b11101111;
+                }
+            },
+            6 => {
+                // Fetch next instruction
+                cpu.register_file.register_ir = cpu.mmu.getMemory(cpu.register_file.program_counter);
+                cpu.register_file.program_counter += 1;
+
+                // Done
                 return true;
             },
             else => {},
